@@ -1,0 +1,425 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fnil\fcharset0 Menlo-Regular;}
+{\colortbl;\red255\green255\blue255;\red70\green137\blue204;\red24\green24\blue24;\red193\green193\blue193;
+\red67\green192\blue160;\red202\green202\blue202;\red89\green138\blue67;\red212\green214\blue154;\red140\green211\blue254;
+\red183\green111\blue179;\red66\green179\blue255;\red194\green126\blue101;\red109\green109\blue109;\red167\green197\blue152;
+}
+{\*\expandedcolortbl;;\cssrgb\c33725\c61176\c83922;\cssrgb\c12157\c12157\c12157;\cssrgb\c80000\c80000\c80000;
+\cssrgb\c30588\c78824\c69020;\cssrgb\c83137\c83137\c83137;\cssrgb\c41569\c60000\c33333;\cssrgb\c86275\c86275\c66667;\cssrgb\c61176\c86275\c99608;
+\cssrgb\c77255\c52549\c75294;\cssrgb\c30980\c75686\c100000;\cssrgb\c80784\c56863\c47059;\cssrgb\c50196\c50196\c50196;\cssrgb\c70980\c80784\c65882;
+}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\deftab720
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs24 \cf2 \cb3 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 using\cf4 \strokec4  \cf5 \strokec5 System\cf4 \strokec4 ;\cb1 \
+\cf2 \cb3 \strokec2 using\cf4 \strokec4  \cf5 \strokec5 System\cf6 \strokec6 .\cf5 \strokec5 Collections\cf6 \strokec6 .\cf5 \strokec5 Generic\cf4 \strokec4 ;\cb1 \
+\cf2 \cb3 \strokec2 using\cf4 \strokec4  \cf5 \strokec5 UnityEngine\cf4 \strokec4 ;\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7 /// <summary>\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// AbilitySystem: Centralized ability execution for the entire game.\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// DESIGN PHILOSOPHY:\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// - Single source of truth for ALL ability behavior\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// - Prevents combat/buy phase logic from drifting apart over time\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// - Makes it easy to add new abilities (one place to edit)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// - Clear separation between ability phases (OnPlay vs Combat)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// ABILITY PHASES:\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// 1. ON-PLAY PHASE (Buy Phase)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 ///    - Triggers immediately when a unit is bought and placed\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 ///    - Examples: gain gold, duplicate self, destroy enemy unit, mark target\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 ///    - Requires IOnPlayApi to interact with game state\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// 2. COMBAT PHASE (Multiple sub-phases)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 ///    - Attack Snapshot: Modifies ATK totals before damage is applied\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 ///    - Commander Bypass: Deals damage directly to commander (Navy Seal)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 ///    - Incoming Damage: Modifies how units take damage (Armor, Target Mark)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 ///    - Counterattack: Damaged units deal damage back\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// ADDING NEW ABILITIES:\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// 1. Add enum value to UnitAbilityType (Enums.cs)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// 2. Add execution logic to the appropriate phase method here\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// 3. Document the ability behavior in comments\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// 4. Create UnitCardDefinition assets using the new ability\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 /// </summary>\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf2 \cb3 \strokec2 public\cf4 \strokec4  \cf2 \strokec2 static\cf4 \strokec4  \cf2 \strokec2 class\cf4 \strokec4  \cf5 \strokec5 AbilitySystem\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3 \{\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7     // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // BUY PHASE API (INTERFACE)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // ========================================\cf4 \cb1 \strokec4 \
+\
+\cf7 \cb3 \strokec7     /// <summary>\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// Interface for on-play abilities that need to interact with game state.\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// WHY AN INTERFACE?\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// Some on-play abilities need help from the "buy phase controller"\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// (because it knows maxUnitsPerRow, placement rules, deck access, etc.)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// This interface lets abilities request actions without coupling\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// AbilitySystem to BattleTestRunner or other controllers.\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// </summary>\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3     \cf2 \strokec2 public\cf4 \strokec4  \cf2 \strokec2 interface\cf4 \strokec4  \cf5 \strokec5 IOnPlayApi\cf4 \cb1 \strokec4 \
+\cb3     \{\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7         /// <summary>\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         /// Attempts to play a duplicate copy of a unit from the deck.\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         /// Used by: DuplicateSelfFromDeckOnPlay\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         /// </summary>\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3         \cf2 \strokec2 bool\cf4 \strokec4  \cf8 \strokec8 TryPlayCopyFromDeck\cf4 \strokec4 (\cf5 \strokec5 Player\cf4 \strokec4  \cf9 \strokec9 owner\cf4 \strokec4 , \cf5 \strokec5 Unit\cf4 \strokec4  \cf9 \strokec9 sourceUnit\cf4 \strokec4 );\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7         /// <summary>\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         /// Destroys the strongest enemy vehicle if their vehicle row is full.\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         /// Used by: DestroyStrongestEnemyVehicleIfEnemyVehicleRowIsFullOnPlay\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         /// </summary>\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3         \cf2 \strokec2 void\cf4 \strokec4  \cf8 \strokec8 TryDestroyStrongestEnemyVehicleIfRowFull\cf4 \strokec4 (\cf5 \strokec5 Player\cf4 \strokec4  \cf9 \strokec9 owner\cf4 \strokec4 , \cf5 \strokec5 Player\cf4 \strokec4  \cf9 \strokec9 enemy\cf4 \strokec4 );\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7         /// <summary>\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         /// Marks a random enemy unit for 2x vulnerability during combat.\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         /// Used by: TargetMark\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         /// </summary>\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3         \cf2 \strokec2 void\cf4 \strokec4  \cf8 \strokec8 ApplyTargetMarkOnPlay\cf4 \strokec4 (\cf5 \strokec5 Player\cf4 \strokec4  \cf9 \strokec9 owner\cf4 \strokec4 , \cf5 \strokec5 Player\cf4 \strokec4  \cf9 \strokec9 enemy\cf4 \strokec4 , \cf5 \strokec5 Unit\cf4 \strokec4  \cf9 \strokec9 markerUnit\cf4 \strokec4 );\cb1 \
+\cb3     \}\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7     // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // ON-PLAY ABILITIES (BUY PHASE)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // ========================================\cf4 \cb1 \strokec4 \
+\
+\cf7 \cb3 \strokec7     /// <summary>\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// Executes on-play abilities immediately after a unit is bought and placed.\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// WHEN THIS IS CALLED:\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - After gold is spent\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - After card is removed from hand\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - After unit is placed on the board\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - Before rearrangement phase\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - Before combat phase\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// PARAMETERS:\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - owner: Player who bought the unit\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - enemy: Opponent player\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - unit: The unit that was just placed\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - api: Interface to request game state changes\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// </summary>\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3     \cf2 \strokec2 public\cf4 \strokec4  \cf2 \strokec2 static\cf4 \strokec4  \cf2 \strokec2 void\cf4 \strokec4  \cf8 \strokec8 ExecuteOnPlay\cf4 \strokec4 (\cf5 \strokec5 Player\cf4 \strokec4  \cf9 \strokec9 owner\cf4 \strokec4 , \cf5 \strokec5 Player\cf4 \strokec4  \cf9 \strokec9 enemy\cf4 \strokec4 , \cf5 \strokec5 Unit\cf4 \strokec4  \cf9 \strokec9 unit\cf4 \strokec4 , \cf5 \strokec5 IOnPlayApi\cf4 \strokec4  \cf9 \strokec9 api\cf4 \strokec4 )\cb1 \
+\cb3     \{\cb1 \
+\cb3         \cf10 \strokec10 switch\cf4 \strokec4  (\cf9 \strokec9 unit\cf6 \strokec6 .\cf9 \strokec9 Ability\cf4 \strokec4 )\cb1 \
+\cb3         \{\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7             // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7             // ECONOMY ABILITIES\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7             // ========================================\cf4 \cb1 \strokec4 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3             \cf10 \strokec10 case\cf4 \strokec4  \cf5 \strokec5 UnitAbilityType\cf6 \strokec6 .\cf11 \strokec11 GainGoldOnPlay\cf4 \strokec4 :\cb1 \
+\cb3             \{\cb1 \
+\cb3                 \cf2 \strokec2 int\cf4 \strokec4  \cf9 \strokec9 amount\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf9 \strokec9 unit\cf6 \strokec6 .\cf9 \strokec9 AbilityData\cf6 \strokec6 .\cf9 \strokec9 Amount\cf4 \strokec4 ;\cb1 \
+\cb3                 \cf9 \strokec9 owner\cf6 \strokec6 .\cf9 \strokec9 Gold\cf4 \strokec4  \cf6 \strokec6 +=\cf4 \strokec4  \cf9 \strokec9 amount\cf4 \strokec4 ;\cb1 \
+\
+\cb3                 \cf5 \strokec5 Debug\cf6 \strokec6 .\cf8 \strokec8 Log\cf4 \strokec4 (\cf12 \strokec12 $"[ON-PLAY] \cf6 \strokec6 \{\cf9 \strokec9 owner\cf6 \strokec6 .\cf9 \strokec9 Name\cf6 \strokec6 \}\cf12 \strokec12  gains \cf6 \strokec6 \{\cf9 \strokec9 amount\cf6 \strokec6 \}\cf12 \strokec12  gold from \cf6 \strokec6 \{\cf9 \strokec9 unit\cf6 \strokec6 .\cf9 \strokec9 Name\cf6 \strokec6 \}\cf12 \strokec12 . GoldNow=\cf6 \strokec6 \{\cf9 \strokec9 owner\cf6 \strokec6 .\cf9 \strokec9 Gold\cf6 \strokec6 \}\cf12 \strokec12 "\cf4 \strokec4 );\cb1 \
+\cb3                 \cf10 \strokec10 break\cf4 \strokec4 ;\cb1 \
+\cb3             \}\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7             // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7             // SUMMONING ABILITIES\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7             // ========================================\cf4 \cb1 \strokec4 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3             \cf10 \strokec10 case\cf4 \strokec4  \cf5 \strokec5 UnitAbilityType\cf6 \strokec6 .\cf11 \strokec11 DuplicateSelfFromDeckOnPlay\cf4 \strokec4 :\cb1 \
+\cb3             \{\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7                 // Searches deck for another copy of this unit and plays it immediately\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7                 // (if there's room in the row)\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3                 \cf9 \strokec9 api\cf6 \strokec6 .\cf8 \strokec8 TryPlayCopyFromDeck\cf4 \strokec4 (\cf9 \strokec9 owner\cf4 \strokec4 , \cf9 \strokec9 unit\cf4 \strokec4 );\cb1 \
+\cb3                 \cf10 \strokec10 break\cf4 \strokec4 ;\cb1 \
+\cb3             \}\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7             // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7             // DESTRUCTION ABILITIES\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7             // ========================================\cf4 \cb1 \strokec4 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3             \cf10 \strokec10 case\cf4 \strokec4  \cf5 \strokec5 UnitAbilityType\cf6 \strokec6 .\cf11 \strokec11 DestroyStrongestEnemyVehicleIfEnemyVehicleRowIsFullOnPlay\cf4 \strokec4 :\cb1 \
+\cb3             \{\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7                 // Destroys the strongest enemy vehicle (highest ATK, then HP)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7                 // but ONLY if their vehicle row is completely full\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3                 \cf9 \strokec9 api\cf6 \strokec6 .\cf8 \strokec8 TryDestroyStrongestEnemyVehicleIfRowFull\cf4 \strokec4 (\cf9 \strokec9 owner\cf4 \strokec4 , \cf9 \strokec9 enemy\cf4 \strokec4 );\cb1 \
+\cb3                 \cf10 \strokec10 break\cf4 \strokec4 ;\cb1 \
+\cb3             \}\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7             // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7             // TARGETING ABILITIES\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7             // ========================================\cf4 \cb1 \strokec4 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3             \cf10 \strokec10 case\cf4 \strokec4  \cf5 \strokec5 UnitAbilityType\cf6 \strokec6 .\cf11 \strokec11 TargetMark\cf4 \strokec4 :\cb1 \
+\cb3             \{\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7                 // Marks a random enemy unit for 2x vulnerability\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7                 // Mark persists until the unit dies or is replaced\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3                 \cf9 \strokec9 api\cf6 \strokec6 .\cf8 \strokec8 ApplyTargetMarkOnPlay\cf4 \strokec4 (\cf9 \strokec9 owner\cf4 \strokec4 , \cf9 \strokec9 enemy\cf4 \strokec4 , \cf9 \strokec9 unit\cf4 \strokec4 );\cb1 \
+\cb3                 \cf10 \strokec10 break\cf4 \strokec4 ;\cb1 \
+\cb3             \}\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7             // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7             // PASSIVE COMBAT ABILITIES (NO ACTION NEEDED)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7             // ========================================\cf4 \cb1 \strokec4 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3             \cf10 \strokec10 case\cf4 \strokec4  \cf5 \strokec5 UnitAbilityType\cf6 \strokec6 .\cf11 \strokec11 TauntRowFirst\cf4 \strokec4 :\cb1 \
+\cb3             \{\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7                 // Taunt is a passive combat routing rule (handled in CombatResolver)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7                 // Nothing to do here, but we log it for clarity\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3                 \cf5 \strokec5 Debug\cf6 \strokec6 .\cf8 \strokec8 Log\cf4 \strokec4 (\cf12 \strokec12 $"[ON-PLAY] \cf6 \strokec6 \{\cf9 \strokec9 owner\cf6 \strokec6 .\cf9 \strokec9 Name\cf6 \strokec6 \}\cf12 \strokec12  placed TAUNT unit: \cf6 \strokec6 \{\cf9 \strokec9 unit\cf6 \strokec6 .\cf9 \strokec9 Name\cf6 \strokec6 \}\cf12 \strokec12  (UnitId=\cf6 \strokec6 \{\cf9 \strokec9 unit\cf6 \strokec6 .\cf9 \strokec9 InstanceId\cf6 \strokec6 \}\cf12 \strokec12 )"\cf4 \strokec4 );\cb1 \
+\cb3                 \cf10 \strokec10 break\cf4 \strokec4 ;\cb1 \
+\cb3             \}\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7             // No default case - abilities that don't have on-play effects simply do nothing here\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3         \}\cb1 \
+\cb3     \}\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7     // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // COMBAT ABILITIES: ATTACK SNAPSHOT\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // ========================================\cf4 \cb1 \strokec4 \
+\
+\cf7 \cb3 \strokec7     /// \cf13 \strokec13 <\cf2 \strokec2 summary\cf13 \strokec13 >\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// Calculates the attack value for a unit after applying ability modifiers.\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// WHEN THIS IS CALLED:\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - Once per unit, before damage is applied\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - After pre-emptive strikes are resolved\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - Before damage streams are calculated\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// ABILITY TYPES HANDLED HERE:\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - Conditional ATK multipliers (RPG, 3-of-a-kind, full health)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - Row-wide buffs (future: Commander ability)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - Enemy-dependent modifiers (future: SOS below 50% HP)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// RETURNS:\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// Final ATK value for this unit (used in damage stream calculation)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// \cf13 \strokec13 </\cf2 \strokec2 summary\cf13 \strokec13 >\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3     \cf2 \strokec2 public\cf4 \strokec4  \cf2 \strokec2 static\cf4 \strokec4  \cf2 \strokec2 int\cf4 \strokec4  \cf8 \strokec8 GetAttackForSnapshot\cf4 \strokec4 (\cb1 \
+\cb3         \cf5 \strokec5 Unit\cf4 \strokec4  \cf9 \strokec9 unit\cf4 \strokec4 ,\cb1 \
+\cb3         \cf5 \strokec5 Player\cf4 \strokec4  \cf9 \strokec9 owner\cf4 \strokec4 ,\cb1 \
+\cb3         \cf5 \strokec5 Player\cf4 \strokec4  \cf9 \strokec9 enemy\cf4 \strokec4 ,\cb1 \
+\cb3         \cf5 \strokec5 RowType\cf4 \strokec4  \cf9 \strokec9 row\cf4 \strokec4 ,\cb1 \
+\cb3         \cf5 \strokec5 Dictionary\cf4 \strokec4 <\cf2 \strokec2 string\cf4 \strokec4 , \cf2 \strokec2 int\cf4 \strokec4 > \cf9 \strokec9 aliveCountByNameOnRow\cf4 \strokec4 ,\cb1 \
+\cb3         \cf2 \strokec2 bool\cf4 \strokec4  \cf9 \strokec9 enemyHasTank\cf4 \strokec4 ,\cb1 \
+\cb3         \cf5 \strokec5 CombatReport\cf4 \strokec4  \cf9 \strokec9 report\cf4 \strokec4 ,\cb1 \
+\cb3         \cf2 \strokec2 bool\cf4 \strokec4  \cf9 \strokec9 alsoDebugLog\cf4 \strokec4 )\cb1 \
+\cb3     \{\cb1 \
+\cb3         \cf2 \strokec2 int\cf4 \strokec4  \cf9 \strokec9 atk\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf9 \strokec9 unit\cf4 \strokec4 .\cf9 \strokec9 ATK\cf4 \strokec4 ;\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7         // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         // RPG: Double ATK if enemy has any alive tank\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         // ========================================\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3         \cf10 \strokec10 if\cf4 \strokec4  (\cf9 \strokec9 unit\cf4 \strokec4 .\cf9 \strokec9 Ability\cf4 \strokec4  \cf6 \strokec6 ==\cf4 \strokec4  \cf9 \strokec9 UnitAbilityType\cf4 \strokec4 .\cf9 \strokec9 DoubleAttackIfEnemyHasTank\cf4 \strokec4  \cf6 \strokec6 &&\cf4 \strokec4  \cf9 \strokec9 enemyHasTank\cf4 \strokec4 )\cb1 \
+\cb3         \{\cb1 \
+\cb3             \cf9 \strokec9 atk\cf4 \strokec4  \cf6 \strokec6 *=\cf4 \strokec4  \cf14 \strokec14 2\cf4 \strokec4 ;\cb1 \
+\cb3             \cf8 \strokec8 AddAbilityEvent\cf4 \strokec4 (\cf9 \strokec9 report\cf4 \strokec4 , \cf9 \strokec9 alsoDebugLog\cf4 \strokec4 ,\cb1 \
+\cb3                 \cf12 \strokec12 $"[ABILITY] \cf6 \strokec6 \{\cf9 \strokec9 owner\cf6 \strokec6 .\cf9 \strokec9 Name\cf6 \strokec6 \}\cf12 \strokec12  \cf6 \strokec6 \{\cf9 \strokec9 row\cf6 \strokec6 \}\cf12 \strokec12 : '\cf6 \strokec6 \{\cf9 \strokec9 unit\cf6 \strokec6 .\cf9 \strokec9 Name\cf6 \strokec6 \}\cf12 \strokec12 ' => enemy has tank, ATK doubled"\cf4 \strokec4 ,\cb1 \
+\cb3                 \cf9 \strokec9 sourcePlayer\cf4 \strokec4 : \cf9 \strokec9 owner\cf4 \strokec4 , \cf9 \strokec9 sourceUnit\cf4 \strokec4 : \cf9 \strokec9 unit\cf4 \strokec4 , \cf9 \strokec9 row\cf4 \strokec4 : \cf9 \strokec9 row\cf4 \strokec4 , \cf9 \strokec9 amount\cf4 \strokec4 : \cf14 \strokec14 2\cf4 \strokec4 );\cb1 \
+\cb3         \}\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7         // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         // 3-OF-A-KIND: Double ATK if 3+ copies in this row\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         // ========================================\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3         \cf10 \strokec10 if\cf4 \strokec4  (\cf9 \strokec9 unit\cf4 \strokec4 .\cf9 \strokec9 Ability\cf4 \strokec4  \cf6 \strokec6 ==\cf4 \strokec4  \cf9 \strokec9 UnitAbilityType\cf4 \strokec4 .\cf9 \strokec9 DoubleAttackIfThreeOfKindOnRow\cf4 \strokec4 )\cb1 \
+\cb3         \{\cb1 \
+\cb3             \cf10 \strokec10 if\cf4 \strokec4  (\cf9 \strokec9 aliveCountByNameOnRow\cf4 \strokec4 .\cf8 \strokec8 TryGetValue\cf4 \strokec4 (\cf9 \strokec9 unit\cf4 \strokec4 .\cf9 \strokec9 Name\cf4 \strokec4 , \cf2 \strokec2 out\cf4 \strokec4  \cf2 \strokec2 int\cf4 \strokec4  \cf9 \strokec9 count\cf4 \strokec4 ) \cf6 \strokec6 &&\cf4 \strokec4  \cf9 \strokec9 count\cf4 \strokec4  \cf6 \strokec6 >=\cf4 \strokec4  \cf14 \strokec14 3\cf4 \strokec4 )\cb1 \
+\cb3             \{\cb1 \
+\cb3                 \cf9 \strokec9 atk\cf4 \strokec4  \cf6 \strokec6 *=\cf4 \strokec4  \cf14 \strokec14 2\cf4 \strokec4 ;\cb1 \
+\cb3                 \cf8 \strokec8 AddAbilityEvent\cf4 \strokec4 (\cf9 \strokec9 report\cf4 \strokec4 , \cf9 \strokec9 alsoDebugLog\cf4 \strokec4 ,\cb1 \
+\cb3                     \cf12 \strokec12 $"[SYNERGY] \cf6 \strokec6 \{\cf9 \strokec9 owner\cf6 \strokec6 .\cf9 \strokec9 Name\cf6 \strokec6 \}\cf12 \strokec12  \cf6 \strokec6 \{\cf9 \strokec9 row\cf6 \strokec6 \}\cf12 \strokec12 : \cf6 \strokec6 \{\cf9 \strokec9 count\cf6 \strokec6 \}\cf12 \strokec12 x '\cf6 \strokec6 \{\cf9 \strokec9 unit\cf6 \strokec6 .\cf9 \strokec9 Name\cf6 \strokec6 \}\cf12 \strokec12 ' => double ATK (3-of-a-kind)"\cf4 \strokec4 ,\cb1 \
+\cb3                     \cf9 \strokec9 sourcePlayer\cf4 \strokec4 : \cf9 \strokec9 owner\cf4 \strokec4 , \cf9 \strokec9 sourceUnit\cf4 \strokec4 : \cf9 \strokec9 unit\cf4 \strokec4 , \cf9 \strokec9 row\cf4 \strokec4 : \cf9 \strokec9 row\cf4 \strokec4 , \cf9 \strokec9 amount\cf4 \strokec4 : \cf14 \strokec14 2\cf4 \strokec4 );\cb1 \
+\cb3             \}\cb1 \
+\cb3         \}\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7         // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         // FULL HEALTH: Double ATK if at max HP\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         // ========================================\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3         \cf10 \strokec10 if\cf4 \strokec4  (\cf9 \strokec9 unit\cf4 \strokec4 .\cf9 \strokec9 Ability\cf4 \strokec4  \cf6 \strokec6 ==\cf4 \strokec4  \cf9 \strokec9 UnitAbilityType\cf4 \strokec4 .\cf9 \strokec9 DoubleAttackIfFullHealth\cf4 \strokec4 )\cb1 \
+\cb3         \{\cb1 \
+\cb3             \cf10 \strokec10 if\cf4 \strokec4  (\cf9 \strokec9 unit\cf4 \strokec4 .\cf9 \strokec9 HP\cf4 \strokec4  \cf6 \strokec6 ==\cf4 \strokec4  \cf9 \strokec9 unit\cf4 \strokec4 .\cf9 \strokec9 MaxHP\cf4 \strokec4 )\cb1 \
+\cb3             \{\cb1 \
+\cb3                 \cf9 \strokec9 atk\cf4 \strokec4  \cf6 \strokec6 *=\cf4 \strokec4  \cf14 \strokec14 2\cf4 \strokec4 ;\cb1 \
+\cb3                 \cf8 \strokec8 AddAbilityEvent\cf4 \strokec4 (\cf9 \strokec9 report\cf4 \strokec4 , \cf9 \strokec9 alsoDebugLog\cf4 \strokec4 ,\cb1 \
+\cb3                     \cf12 \strokec12 $"[ABILITY] \cf6 \strokec6 \{\cf9 \strokec9 owner\cf6 \strokec6 .\cf9 \strokec9 Name\cf6 \strokec6 \}\cf12 \strokec12  \cf6 \strokec6 \{\cf9 \strokec9 row\cf6 \strokec6 \}\cf12 \strokec12 : '\cf6 \strokec6 \{\cf9 \strokec9 unit\cf6 \strokec6 .\cf9 \strokec9 Name\cf6 \strokec6 \}\cf12 \strokec12 ' full HP (\cf6 \strokec6 \{\cf9 \strokec9 unit\cf6 \strokec6 .\cf9 \strokec9 HP\cf6 \strokec6 \}\cf12 \strokec12 /\cf6 \strokec6 \{\cf9 \strokec9 unit\cf6 \strokec6 .\cf9 \strokec9 MaxHP\cf6 \strokec6 \}\cf12 \strokec12 ) => double ATK"\cf4 \strokec4 ,\cb1 \
+\cb3                     \cf9 \strokec9 sourcePlayer\cf4 \strokec4 : \cf9 \strokec9 owner\cf4 \strokec4 , \cf9 \strokec9 sourceUnit\cf4 \strokec4 : \cf9 \strokec9 unit\cf4 \strokec4 , \cf9 \strokec9 row\cf4 \strokec4 : \cf9 \strokec9 row\cf4 \strokec4 , \cf9 \strokec9 amount\cf4 \strokec4 : \cf14 \strokec14 2\cf4 \strokec4 );\cb1 \
+\cb3             \}\cb1 \
+\cb3         \}\cb1 \
+\
+\cb3         \cf10 \strokec10 return\cf4 \strokec4  \cf9 \strokec9 atk\cf4 \strokec4 ;\cb1 \
+\cb3     \}\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7     // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // COMBAT ABILITIES: COMMANDER BYPASS\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // ========================================\cf4 \cb1 \strokec4 \
+\
+\cf7 \cb3 \strokec7     /// \cf13 \strokec13 <\cf2 \strokec2 summary\cf13 \strokec13 >\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// Calculates commander bypass damage for a unit (Navy Seal ability).\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// COMMANDER BYPASS:\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - Damage goes directly to enemy commander (ignores units entirely)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - Applied BEFORE main damage streams\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - Based on unit's ATK \'d7 multiplier (typically 25%)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// EXAMPLE:\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// Navy Seal with 6 ATK and 25% multiplier = 1.5 \uc0\u8594  2 bypass damage\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// RETURNS:\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// Bypass damage amount (0 if unit doesn't have this ability)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// </summary>\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3     \cf2 \strokec2 public\cf4 \strokec4  \cf2 \strokec2 static\cf4 \strokec4  \cf2 \strokec2 int\cf4 \strokec4  \cf8 \strokec8 GetCommanderBypassDamage\cf4 \strokec4 (\cf5 \strokec5 Unit\cf4 \strokec4  \cf9 \strokec9 unit\cf4 \strokec4 )\cb1 \
+\cb3     \{\cb1 \
+\cb3         \cf10 \strokec10 if\cf4 \strokec4  (\cf9 \strokec9 unit\cf6 \strokec6 .\cf9 \strokec9 Ability\cf4 \strokec4  \cf6 \strokec6 !=\cf4 \strokec4  \cf5 \strokec5 UnitAbilityType\cf6 \strokec6 .\cf11 \strokec11 CommanderBypassDamage25Percent\cf4 \strokec4 )\cb1 \
+\cb3             \cf10 \strokec10 return\cf4 \strokec4  \cf14 \strokec14 0\cf4 \strokec4 ;\cb1 \
+\
+\cb3         \cf2 \strokec2 float\cf4 \strokec4  \cf9 \strokec9 m\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf9 \strokec9 unit\cf6 \strokec6 .\cf9 \strokec9 AbilityData\cf6 \strokec6 .\cf9 \strokec9 Multiplier\cf4 \strokec4 ;\cb1 \
+\cb3         \cf10 \strokec10 if\cf4 \strokec4  (\cf9 \strokec9 m\cf4 \strokec4  \cf6 \strokec6 <=\cf4 \strokec4  \cf14 \strokec14 0f\cf4 \strokec4 ) \cf9 \strokec9 m\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf14 \strokec14 0.25f\cf4 \strokec4 ; \cf7 \strokec7 // Default 25% for Navy Seal\cf4 \cb1 \strokec4 \
+\
+\cb3         \cf10 \strokec10 return\cf4 \strokec4  \cf5 \strokec5 Mathf\cf6 \strokec6 .\cf8 \strokec8 RoundToInt\cf4 \strokec4 (\cf9 \strokec9 unit\cf6 \strokec6 .\cf9 \strokec9 ATK\cf4 \strokec4  \cf6 \strokec6 *\cf4 \strokec4  \cf9 \strokec9 m\cf4 \strokec4 );\cb1 \
+\cb3     \}\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7     // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // COMBAT ABILITIES: INCOMING DAMAGE MODIFICATION\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // NOTE: This section is currently handled directly in CombatResolver\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // because damage resolution is tightly coupled with the streaming algorithm.\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // The following abilities are implemented in CombatResolver.ResolveIncomingDamageForUnit:\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // - ReduceIncomingDamage50Percent (Armored Tank)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // - ArmorPiercing (disables damage reduction)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // - TargetMark (2x HP damage vulnerability)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // - Counterattack (50% damage back to attacker)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // If we wanted to centralize them here, we'd need to create a more complex\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // damage resolution API. For now, keeping them in CombatResolver is cleaner.\cf4 \cb1 \strokec4 \
+\
+\cf7 \cb3 \strokec7     // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // HELPER METHODS\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     // ========================================\cf4 \cb1 \strokec4 \
+\
+\cf7 \cb3 \strokec7     /// <summary>\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// Adds an ability-triggered event to the combat report.\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// \cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// WHY NOT USE Debug.Log DIRECTLY?\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - CombatResolver controls console noise (simulation should be quiet by default)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - All events go into the report for playback/UI display\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// - Only CombatResolver decides what prints to console (via alsoDebugLog flag)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7     /// </summary>\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3     \cf2 \strokec2 private\cf4 \strokec4  \cf2 \strokec2 static\cf4 \strokec4  \cf2 \strokec2 void\cf4 \strokec4  \cf8 \strokec8 AddAbilityEvent\cf4 \strokec4 (\cb1 \
+\cb3         \cf5 \strokec5 CombatReport\cf4 \strokec4  \cf9 \strokec9 report\cf4 \strokec4 ,\cb1 \
+\cb3         \cf2 \strokec2 bool\cf4 \strokec4  \cf9 \strokec9 alsoDebugLog\cf4 \strokec4 ,\cb1 \
+\cb3         \cf2 \strokec2 string\cf4 \strokec4  \cf9 \strokec9 note\cf4 \strokec4 ,\cb1 \
+\cb3         \cf5 \strokec5 Player\cf4 \strokec4  \cf9 \strokec9 sourcePlayer\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf2 \strokec2 null\cf4 \strokec4 ,\cb1 \
+\cb3         \cf5 \strokec5 Unit\cf4 \strokec4  \cf9 \strokec9 sourceUnit\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf2 \strokec2 null\cf4 \strokec4 ,\cb1 \
+\cb3         \cf5 \strokec5 Player\cf4 \strokec4  \cf9 \strokec9 targetPlayer\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf2 \strokec2 null\cf4 \strokec4 ,\cb1 \
+\cb3         \cf5 \strokec5 Unit\cf4 \strokec4  \cf9 \strokec9 targetUnit\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf2 \strokec2 null\cf4 \strokec4 ,\cb1 \
+\cb3         \cf5 \strokec5 RowType\cf6 \strokec6 ?\cf4 \strokec4  \cf9 \strokec9 row\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf2 \strokec2 null\cf4 \strokec4 ,\cb1 \
+\cb3         \cf2 \strokec2 int\cf4 \strokec4  \cf9 \strokec9 amount\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf14 \strokec14 0\cf4 \strokec4 )\cb1 \
+\cb3     \{\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7         // Use SynergyActivated as the generic "ability fired" event\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         // (You can split this into AbilityTriggered vs SynergyActivated later if needed)\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3         \cf9 \strokec9 report\cf6 \strokec6 .\cf8 \strokec8 AddEvent\cf4 \strokec4 (\cf2 \strokec2 new\cf4 \strokec4  \cf5 \strokec5 CombatEvent\cf4 \cb1 \strokec4 \
+\cb3         \{\cb1 \
+\cb3             \cf9 \strokec9 Type\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf5 \strokec5 CombatEventType\cf6 \strokec6 .\cf11 \strokec11 SynergyActivated\cf4 \strokec4 ,\cb1 \
+\cb3             \cf9 \strokec9 Note\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf9 \strokec9 note\cf4 \strokec4 ,\cb1 \
+\cb3             \cf9 \strokec9 SourcePlayer\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf9 \strokec9 sourcePlayer\cf4 \strokec4 ,\cb1 \
+\cb3             \cf9 \strokec9 SourceUnit\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf9 \strokec9 sourceUnit\cf4 \strokec4 ,\cb1 \
+\cb3             \cf9 \strokec9 TargetPlayer\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf9 \strokec9 targetPlayer\cf4 \strokec4 ,\cb1 \
+\cb3             \cf9 \strokec9 TargetUnit\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf9 \strokec9 targetUnit\cf4 \strokec4 ,\cb1 \
+\cb3             \cf9 \strokec9 Row\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf9 \strokec9 row\cf4 \strokec4 ,\cb1 \
+\cb3             \cf9 \strokec9 Amount\cf4 \strokec4  \cf6 \strokec6 =\cf4 \strokec4  \cf9 \strokec9 amount\cf4 \cb1 \strokec4 \
+\cb3         \});\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7         // IMPORTANT: Do NOT print Debug.Log here\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         // CombatResolver controls console output via alsoDebugLog\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7         // The report is the authoritative truth; playback decides what to show\cf4 \cb1 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \cb3     \}\cb1 \
+\cb3 \}\cb1 \
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \cb3 \strokec7 // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // ABILITY CATALOG (FOR REFERENCE)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // ========================================\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // This section documents all abilities currently in the game.\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // Update this list when adding new abilities!\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 //\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // === ON-PLAY ABILITIES (Buy Phase) ===\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - GainGoldOnPlay: Immediately gain gold when placed\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - DuplicateSelfFromDeckOnPlay: Play another copy from deck if available\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - DestroyStrongestEnemyVehicleIfEnemyVehicleRowIsFullOnPlay: Conditional destruction\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - TargetMark: Mark a random enemy unit for 2x vulnerability\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - TauntRowFirst: Passive - forces damage to this row first\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 //\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // === COMBAT ABILITIES (Attack Snapshot) ===\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - DoubleAttackIfEnemyHasTank: RPG - 2x ATK if enemy has vehicles\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - DoubleAttackIfThreeOfKindOnRow: 3-of-a-kind synergy - 2x ATK if 3+ copies\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - DoubleAttackIfFullHealth: 2x ATK if at max HP\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 //\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // === COMBAT ABILITIES (Commander Bypass) ===\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - CommanderBypassDamage25Percent: Navy Seal - 25% of ATK goes directly to commander\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 //\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // === COMBAT ABILITIES (Damage Modification) ===\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - ReduceIncomingDamage50Percent: Armored Tank - takes 50% damage (or dies if overwhelmed)\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - ArmorPiercing: Disables ReduceIncomingDamage50Percent on enemies\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - Counterattack: Damaged units deal 50% damage back to attacker\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - TargetMark (passive): Marked units take 2x HP damage from streams\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 //\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // === FUTURE ABILITIES (Planned) ===\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - Snipe: Deals damage directly to back row\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - SOS: Double damage if commander HP below 50%\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - Buddy System: Double damage if placed next to same unit type\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - Commander: Doubles ATK of all units in row\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - Mechanic: Doubles HP of all units in row\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - Spy: Infiltrate enemy field, gain gold while alive\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - Sabotage: Destroy strongest infantry if enemy infantry row full\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - Bombard: Destroy strongest ranged if 3+ ranged units fielded\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - Death from Below: Destroy strongest air if enemy air row full\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - Last Stand: Survive with 1 HP, absorb total damage\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 // - From the Grave: Deal 5 damage upon death\cf4 \cb1 \strokec4 \
+\cf7 \cb3 \strokec7 //\cf4 \cb1 \strokec4 \
+}

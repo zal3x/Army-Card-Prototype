@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c584815bb2e4c49459f143b0b7d6511f, type: 3}
+  m_Name: Card_Infantry_Fighting_Vehicle
+  m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
+  cardName: IFV
+  type: 1
+  cost: 7
+  hp: 15
+  atk: 8
+  ability: 8
+  countsAsVehicle: 0
+  abilityParams:
+    Multiplier: 1
+    Amount: 10
+  hasPreemptive: 0
+  preemptiveTargetType: 0
+  preemptiveDamage: 0
+  targetBackRowOnly: 0
+  worldPrefabA: {fileID: 3015003847550376168, guid: cc0d2944e0bb84e499c0d182a2c126eb, type: 3}
+  worldPrefabB: {fileID: 4675991791776931622, guid: 37f67fd89f9fb48ce91f9c974f01ba6d, type: 3}
+  portraitSprite: {fileID: 0}

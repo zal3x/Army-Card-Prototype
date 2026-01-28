@@ -1,0 +1,1077 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+/// <summary>
+/// BattleTestRunner: Main controller for the auto-battler prototype.
+/// 
+/// RESPONSIBILITIES:
+/// - Manages the multi-round battle loop (default: 3 rounds)
+/// - Controls gold economy and card drawing
+/// - Orchestrates buy phase (human UI + AI opponent)
+/// - Triggers rearrangement phase (rounds 2+)
+/// - Calls combat resolution and playback
+/// - Syncs world visuals with simulation state
+/// 
+/// BATTLE FLOW (per round):
+/// 1. Gold Phase: Award gold to both players
+/// 2. Draw Phase: Draw cards (rounds 2+)
+/// 3. Buy Phase: Alternating purchases (A buys, B buys, repeat until both pass)
+/// 4. Rearrangement Phase: Sort/swap rows (rounds 2+)
+/// 5. Combat Phase: Resolve combat → playback events → sync visuals
+/// </summary>
+[RequireComponent(typeof(CombatPlayback))]
+public class BattleTestRunner : MonoBehaviour, AbilitySystem.IOnPlayApi
+{
+    // ========================================
+    // INSPECTOR CONFIGURATION
+    // ========================================
+
+    #region Battle Rules
+    [Header("Battle Rules")]
+    [Tooltip("How many rounds before battle ends (unless commander dies).")]
+    public int maxRounds = 3;
+
+    [Tooltip("Starting HP for both commanders.")]
+    public int commanderStartHP = 200;
+    #endregion
+
+    #region Draw Rules
+    [Header("Draw Rules")]
+    [Tooltip("How many cards each player draws at battle start.")]
+    public int startingHandSize = 10;
+
+    [Tooltip("How many cards to draw at the start of rounds 2 and 3.")]
+    public int drawAtRoundStart = 1;
+    #endregion
+
+    #region Gold Rules
+    [Header("Gold Rules")]
+    [Tooltip("Gold awarded to each player in round 1 only.")]
+    public int startingGoldRound1 = 10;
+
+    [Tooltip("Gold awarded to each player in rounds 2+.")]
+    public int goldPerRound = 10;
+    #endregion
+
+    #region Board Rules
+    [Header("Board Rules")]
+    [Tooltip("Maximum units allowed per row (Front/Middle/Back).")]
+    public int maxUnitsPerRow = 3;
+    #endregion
+
+    #region Deck Assets
+    [Header("ScriptableObject Decks (drag these in)")]
+    [Tooltip("Player A's deck definition (ScriptableObject).")]
+    public DeckListDefinition playerADeck;
+
+    [Tooltip("Player B's deck definition (ScriptableObject).")]
+    public DeckListDefinition playerBDeck;
+    #endregion
+
+    #region Test Tweaks - Global Multipliers
+    [Header("Test Tweaks (Global Multipliers)")]
+    [Tooltip("Multiplies ALL unit HP and MaxHP when created/placed. (1.0 = normal)")]
+    public float healthMultiplier = 1f;
+
+    [Tooltip("Multiplies ALL unit ATK when created/placed. (1.0 = normal)")]
+    public float damageMultiplier = 1f;
+    #endregion
+
+    #region Test Tweaks - Shuffling
+    [Header("Test Tweaks (Shuffling)")]
+    [Tooltip("If ON: decks shuffle at battle start. If OFF: decks keep exact asset order.")]
+    public bool shuffleDeckOnPlay = false;
+
+    [Tooltip("If ON: uses random shuffle seed each Play (different each run). If OFF: uses fixedShuffleSeed.")]
+    public bool randomizeShuffleSeedOnPlay = true;
+
+    [Tooltip("Fixed shuffle seed (used when randomizeShuffleSeedOnPlay is OFF). Player B uses seed+1.")]
+    public int fixedShuffleSeed = 111;
+    #endregion
+
+    #region Test Tweaks - AI Buying
+    [Header("Test Tweaks (AI Buying)")]
+    [Tooltip("If ON: AI buys random affordable units. If OFF: AI always buys cheapest.")]
+    public bool randomizeAIBuys = false;
+
+    [Tooltip("If ON: uses random seed for buy randomness. If OFF: uses fixedBuySeed (repeatable).")]
+    public bool randomizeBuySeedOnPlay = true;
+
+    [Tooltip("Fixed buy seed (used when randomizeBuySeedOnPlay is OFF).")]
+    public int fixedBuySeed = 999;
+    #endregion
+
+    #region TargetMark Randomness
+    [Header("TargetMark Randomness")]
+    [Tooltip("If ON: TargetMark uses UnityEngine.Random (true random). If OFF: uses buyRng (seeded/repeatable).")]
+    public bool targetMarkUseTrueRandom = false;
+    #endregion
+
+    #region Human Player Settings
+    [Header("Human Test Mode")]
+    [Tooltip("If ON: Player A uses UI. If OFF: Player A uses AI (legacy testing).")]
+    public bool playerAIsHuman = true;
+    #endregion
+
+    #region UI References
+    [Header("Phase 2 UI")]
+    [Tooltip("Reference to the buy phase UI controller.")]
+    public BuyPhaseUI_FixedHand buyUI;
+    #endregion
+
+    #region World Visual Spawning
+    [Header("World Visual Spawning")]
+    [Tooltip("Spawns/removes world-space unit prefabs when units are bought/destroyed.")]
+    public FieldSpawner fieldSpawner;
+
+    [Tooltip("List of UnitCardDefinition assets (Infantry, Tank, Rockets, Plane, etc.). Used for spawning visuals.")]
+    public List<UnitCardDefinition> cardDefinitions = new List<UnitCardDefinition>();
+    #endregion
+
+    // ========================================
+    // PRIVATE STATE
+    // ========================================
+
+    private Player playerA;
+    private Player playerB;
+    private CombatPlayback playback;
+    private Coroutine battleRoutine;
+
+    // RNG for buy-phase randomness (seeded for repeatability if desired)
+    private System.Random buyRng;
+
+    // Quick lookup: card name → definition (for spawning visuals)
+    private Dictionary<string, UnitCardDefinition> defByName;
+
+    // ========================================
+    // UNITY LIFECYCLE
+    // ========================================
+
+    private void Start()
+    {
+        playback = GetComponent<CombatPlayback>();
+
+        InitializeSeeds();
+        InitializePlayers();
+        LoadDecks();
+        BuildCardDefinitionLookup();
+        DrawInitialHands();
+
+        battleRoutine = StartCoroutine(RunBattle());
+    }
+
+    private void OnDisable()
+    {
+        if (battleRoutine != null)
+        {
+            StopCoroutine(battleRoutine);
+            battleRoutine = null;
+        }
+
+        if (playback != null)
+            playback.Stop();
+
+        Debug.LogWarning("[BATTLE] BattleTestRunner DISABLED");
+    }
+
+    private void OnDestroy()
+    {
+        if (playback != null)
+            playback.Stop();
+
+        Debug.LogWarning("[BATTLE] BattleTestRunner DESTROYED");
+    }
+
+    // ========================================
+    // INITIALIZATION
+    // ========================================
+
+    /// <summary>
+    /// Sets up RNG seeds for shuffling and buying.
+    /// If randomize flags are ON, seeds are random each run.
+    /// If OFF, seeds are fixed (repeatable tests).
+    /// </summary>
+    private void InitializeSeeds()
+    {
+        int seedA = randomizeShuffleSeedOnPlay ? UnityEngine.Random.Range(1, 1_000_000) : fixedShuffleSeed;
+        int seedB = randomizeShuffleSeedOnPlay ? UnityEngine.Random.Range(1, 1_000_000) : fixedShuffleSeed + 1;
+        int buySeed = randomizeBuySeedOnPlay ? UnityEngine.Random.Range(1, 1_000_000) : fixedBuySeed;
+
+        buyRng = new System.Random(buySeed);
+
+        Debug.Log($"[SEEDS] ShuffleSeedA={seedA} ShuffleSeedB={seedB} | BuySeed={buySeed} | ShuffleOnPlay={shuffleDeckOnPlay} | RandomBuys={randomizeAIBuys}");
+    }
+
+    /// <summary>
+    /// Creates Player A and Player B with initial state.
+    /// </summary>
+    private void InitializePlayers()
+    {
+        int seedA = randomizeShuffleSeedOnPlay ? UnityEngine.Random.Range(1, 1_000_000) : fixedShuffleSeed;
+        int seedB = randomizeShuffleSeedOnPlay ? UnityEngine.Random.Range(1, 1_000_000) : fixedShuffleSeed + 1;
+
+        playerA = new Player("Player A", deckSeed: seedA);
+        playerB = new Player("Player B", deckSeed: seedB);
+
+        playerA.CommanderHP = commanderStartHP;
+        playerB.CommanderHP = commanderStartHP;
+    }
+
+    /// <summary>
+    /// Loads decks from ScriptableObject assets and optionally shuffles them.
+    /// </summary>
+    private void LoadDecks()
+    {
+        if (playerADeck == null || playerBDeck == null)
+        {
+            Debug.LogError("[BATTLE] Missing DeckListDefinition! Drag PlayerADeck and PlayerBDeck into the inspector.");
+            return;
+        }
+
+        var aCards = playerADeck.BuildRuntimeDeck();
+        var bCards = playerBDeck.BuildRuntimeDeck();
+
+        Debug.Log($"[DECK] PlayerA runtime deck size = {aCards.Count}");
+        Debug.Log($"[DECK] PlayerB runtime deck size = {bCards.Count}");
+
+        playerA.Deck.SetStartingDeck(aCards);
+        playerB.Deck.SetStartingDeck(bCards);
+
+        if (shuffleDeckOnPlay)
+        {
+            playerA.Deck.ShuffleDrawPile();
+            playerB.Deck.ShuffleDrawPile();
+        }
+    }
+
+    /// <summary>
+    /// Builds a quick lookup dictionary: card name → UnitCardDefinition.
+    /// Used by FieldSpawner to find the correct prefab when spawning visuals.
+    /// </summary>
+    private void BuildCardDefinitionLookup()
+    {
+        defByName = new Dictionary<string, UnitCardDefinition>();
+
+        foreach (var def in cardDefinitions)
+        {
+            if (def == null) continue;
+            defByName[def.cardName] = def;
+        }
+    }
+    /// <summary>
+/// Tries to buy a specific card from the player's hand.
+/// This replaces TryBuyHandCardByIndex for carousel-based UI.
+/// </summary>
+private bool TryBuyCard(Player player, UnitCard card)
+{
+    if (card == null) return false;
+
+    // Find the card in player's hand
+    int handIndex = player.Hand.IndexOf(card);
+    if (handIndex == -1)
+    {
+        Debug.LogWarning($"[BUY] Card {card.Name} not found in {player.Name}'s hand!");
+        return false;
+    }
+
+    // Use existing logic
+    return TryBuyHandCardByIndex(player, handIndex);
+}
+    /// <summary>
+    /// Draws the starting hand for both players.
+    /// </summary>
+    private void DrawInitialHands()
+    {
+        DrawCards(playerA, startingHandSize);
+        DrawCards(playerB, startingHandSize);
+    }
+
+    // ========================================
+    // MAIN BATTLE LOOP
+    // ========================================
+
+    /// <summary>
+    /// Main battle coroutine. Runs up to maxRounds, ending early if a commander dies.
+    /// </summary>
+    private IEnumerator RunBattle()
+    {
+        for (int round = 1; round <= maxRounds; round++)
+        {
+            if (IsBattleOver())
+            {
+                Debug.Log($"[BATTLE] Battle already over before Round {round} starts.");
+                break;
+            }
+
+            RoundReport roundReport = new RoundReport();
+            Debug.Log($"================ ROUND {round} ================");
+
+            roundReport.Add(new RoundEvent
+            {
+                Type = RoundEventType.RoundStart,
+                RoundNumber = round,
+                Note = $"Round {round} starts"
+            });
+
+            // 1) GOLD PHASE
+            yield return GoldPhase(round, roundReport);
+
+            // 2) DRAW PHASE (rounds 2+)
+            if (round >= 2)
+            {
+                yield return DrawPhase(round, roundReport);
+            }
+
+            // 3) BUY PHASE
+            fieldSpawner.ResetIndices();
+
+            if (playerAIsHuman)
+            {
+                Debug.Log("=== Buy Phase (Player A = HUMAN UI, Player B = AI) ===");
+                yield return BuyPhaseAlternating_UI(playerA, playerB, round);
+            }
+            else
+            {
+                Debug.LogWarning("[BATTLE] playerAIsHuman is OFF. No buy phase implemented for AI vs AI.");
+            }
+
+            LogBoardState(playerA, $"Round {round} AFTER BUY");
+            LogBoardState(playerB, $"Round {round} AFTER BUY");
+
+            // 4) REARRANGEMENT PHASE (rounds 2+)
+            if (round >= 2)
+            {
+                Debug.Log("=== Rearrangement Phase ===");
+                LogBoardState(playerA, $"Round {round} BEFORE REARRANGE");
+                LogBoardState(playerB, $"Round {round} BEFORE REARRANGE");
+
+                RearrangementPhase(playerA);
+                RearrangementPhase(playerB);
+
+                LogBoardState(playerA, $"Round {round} AFTER REARRANGE");
+                LogBoardState(playerB, $"Round {round} AFTER REARRANGE");
+
+                roundReport.Add(new RoundEvent
+                {
+                    Type = RoundEventType.Rearranged,
+                    RoundNumber = round,
+                    Note = "Rearrangement phase complete"
+                });
+            }
+
+            // 5) COMBAT PHASE
+            Debug.Log("=== Combat Phase ===");
+            CombatReport report = CombatResolver.ResolveCombat(playerA, playerB, alsoDebugLog: false);
+
+            playback.Play(report);
+            yield return new WaitUntil(() => playback != null && !playback.IsPlaying);
+
+            // Sync world visuals with simulation (remove dead units)
+            fieldSpawner.SyncToBoard(playerA, playerB);
+            fieldSpawner.ResetIndices();
+            Debug.Log($"[BATTLE] Round {round} complete. AHP={playerA.CommanderHP} BHP={playerB.CommanderHP}");
+
+            roundReport.Add(new RoundEvent
+            {
+                Type = RoundEventType.RoundEnd,
+                RoundNumber = round,
+                Note = $"Round {round} ends. AHP={playerA.CommanderHP}, BHP={playerB.CommanderHP}"
+            });
+
+            DumpRoundReport(roundReport);
+
+            if (IsBattleOver())
+            {
+                Debug.Log($"Battle ended after Round {round}.");
+                break;
+            }
+
+            yield return new WaitForSeconds(0.25f);
+        }
+
+        Debug.Log($"FINAL RESULT: {playerA.Name} HP={playerA.CommanderHP} vs {playerB.Name} HP={playerB.CommanderHP}");
+    }
+
+    // ========================================
+    // PHASE IMPLEMENTATIONS
+    // ========================================
+
+    #region Gold Phase
+    /// <summary>
+    /// Awards gold to both players.
+    /// Round 1: startingGoldRound1
+    /// Rounds 2+: goldPerRound
+    /// </summary>
+    private IEnumerator GoldPhase(int round, RoundReport roundReport)
+    {
+        int goldGain = (round == 1) ? startingGoldRound1 : goldPerRound;
+
+        playerA.Gold += goldGain;
+        playerB.Gold += goldGain;
+
+        roundReport.Add(new RoundEvent
+        {
+            Type = RoundEventType.GoldGained,
+            RoundNumber = round,
+            Player = playerA,
+            Amount = goldGain,
+            Note = $"{playerA.Name} gains {goldGain} gold (now {playerA.Gold})"
+        });
+
+        roundReport.Add(new RoundEvent
+        {
+            Type = RoundEventType.GoldGained,
+            RoundNumber = round,
+            Player = playerB,
+            Amount = goldGain,
+            Note = $"{playerB.Name} gains {goldGain} gold (now {playerB.Gold})"
+        });
+
+        Debug.Log($"{playerA.Name} gains {goldGain} gold (now {playerA.Gold})");
+        Debug.Log($"{playerB.Name} gains {goldGain} gold (now {playerB.Gold})");
+
+        yield break;
+    }
+    #endregion
+
+    #region Draw Phase
+    /// <summary>
+    /// Draws cards for both players (rounds 2+).
+    /// </summary>
+    private IEnumerator DrawPhase(int round, RoundReport roundReport)
+    {
+        int beforeA = playerA.Hand.Count;
+        int beforeB = playerB.Hand.Count;
+
+        DrawCards(playerA, drawAtRoundStart);
+        DrawCards(playerB, drawAtRoundStart);
+
+        roundReport.Add(new RoundEvent
+        {
+            Type = RoundEventType.CardDrawn,
+            RoundNumber = round,
+            Player = playerA,
+            Amount = playerA.Hand.Count - beforeA,
+            Note = $"{playerA.Name} draws {playerA.Hand.Count - beforeA} (hand now {playerA.Hand.Count})"
+        });
+
+        roundReport.Add(new RoundEvent
+        {
+            Type = RoundEventType.CardDrawn,
+            RoundNumber = round,
+            Player = playerB,
+            Amount = playerB.Hand.Count - beforeB,
+            Note = $"{playerB.Name} draws {playerB.Hand.Count - beforeB} (hand now {playerB.Hand.Count})"
+        });
+
+        yield break;
+    }
+
+    /// <summary>
+    /// Draws cards from deck into hand. Stops when deck is empty.
+    /// </summary>
+    private void DrawCards(Player p, int count)
+    {
+        int drawn = 0;
+
+        for (int i = 0; i < count; i++)
+        {
+            UnitCard card = p.Deck.DrawOne();
+            if (card == null) break;
+
+            p.Hand.Add(card);
+            drawn++;
+        }
+
+        Debug.Log($"{p.Name} draws {drawn} (hand now {p.Hand.Count})");
+    }
+    #endregion
+
+    #region Buy Phase - UI Version
+    /// <summary>
+    /// PHASE 2: Alternating buy loop using UI for Player A and AI for Player B.
+    /// 
+    /// FLOW:
+    /// - Player A clicks a hand card or passes
+    /// - Player B auto-buys one unit (or passes)
+    /// - Repeat until both pass
+    /// 
+    /// NOTES:
+    /// - Buy happens immediately (gold spent, unit placed, card discarded)
+    /// - On-play abilities trigger after placement
+    /// - World visual is spawned via FieldSpawner
+    /// </summary>
+    private IEnumerator BuyPhaseAlternating_UI(Player a, Player b, int round)
+{
+    bool aPassed = false;
+    bool bPassed = false;
+    bool waitingForInput = false;
+    bool processingPurchase = false;
+    UnitCard selectedCard = null;
+
+    // Get reference to your BuyPhaseUI component
+    if (buyUI == null)
+    {
+        Debug.LogError("[BUY] BuyPhaseUI_FixedHand not found!");
+        yield break;
+    }
+
+    buyUI.Begin(
+        round,
+        a,
+        cardSelected: (card) => 
+        { 
+            if (!waitingForInput || processingPurchase) return;
+            selectedCard = card;
+            waitingForInput = false;
+            processingPurchase = true;
+        },
+        passClicked: () => 
+        { 
+            if (!waitingForInput || processingPurchase) return;
+            aPassed = true;
+            waitingForInput = false;
+            processingPurchase = true;
+        }
+    );
+
+while (!aPassed || !bPassed)  // CORRECT - exits when both pass
+    {
+        // === PLAYER A (HUMAN) ===
+        waitingForInput = true;
+        processingPurchase = false;
+        selectedCard = null;
+        
+        float timeout = 0f;
+        while (waitingForInput && timeout < 300f)
+        {
+            timeout += Time.deltaTime;
+            yield return null;
+        }
+
+        if (timeout >= 300f)
+        {
+            Debug.LogError("[BUY] Timeout!");
+            aPassed = true;
+            break;
+        }
+
+        if (!aPassed && selectedCard != null)
+        {
+            bool success = TryBuyCard(a, selectedCard);
+            
+            if (success)
+            {
+                buyUI.RemovePurchasedCard(selectedCard);
+                buyUI.SetHandSummary($"Bought {selectedCard.Name}!");
+            }
+            else
+            {
+                buyUI.SetHandSummary("Can't buy that!");
+                continue;
+            }
+            
+            buyUI.SetRoundGold(round, a.Gold);
+            yield return new WaitForSeconds(0.1f);
+        }
+
+        if (aPassed) break;
+
+        // === PLAYER B (AI) ===
+        UnitCard bCard = null;
+        bool bSuccess = TryAutoBuyOne(b, out bCard);
+        
+        if (bSuccess)
+        {
+            buyUI.SetEnemyBought($"{bCard.Name} ({bCard.Type}) Cost={bCard.Cost}");
+        }
+        else
+        {
+            bPassed = true;
+            buyUI.SetEnemyBought("PASS");
+        }
+
+        yield return new WaitForSeconds(0.3f);
+    }
+
+    buyUI.End();
+}
+
+    /// <summary>
+    /// Buys the exact card at a specific hand index (used by UI clicks).
+    /// Returns true if purchase succeeded.
+    /// </summary>
+    private bool TryBuyHandCardByIndex(Player p, int handIndex)
+    {
+        if (p.Hand == null) return false;
+        if (handIndex < 0 || handIndex >= p.Hand.Count) return false;
+
+        UnitCard chosen = p.Hand[handIndex];
+
+        // Can we afford it?
+        if (chosen.Cost > p.Gold)
+            return false;
+
+        // Is there room in the row?
+        RowType row = GetRowForUnitType(chosen.Type);
+        if (p.Rows[row].Units.Count >= maxUnitsPerRow)
+            return false;
+
+        // BUY
+        p.Gold -= chosen.Cost;
+        p.Hand.RemoveAt(handIndex);
+
+        // PLACE
+        Unit unit = chosen.CreateUnitInstance();
+        ApplyGlobalMultipliers(unit);
+        p.Rows[row].Units.Add(unit);
+        SpawnWorldVisualForBoughtUnit(p, unit, chosen);
+
+        // DISCARD
+        p.Deck.Discard(chosen);
+
+        Debug.Log($"[BUY] {p.Name} buys CARD: {chosen.Name} (Type={chosen.Type}, Cost={chosen.Cost}) -> {row} | UnitId=[{unit.InstanceId}] | GoldAfterBuy={p.Gold}");
+
+        // ON-PLAY TRIGGERS
+        AbilitySystem.ExecuteOnPlay(p, GetOpponent(p), unit, this);
+
+        return true;
+    }
+
+    /// <summary>
+    /// AI auto-buy: buys exactly ONE affordable unit.
+    /// Returns true if a purchase was made, false if player passes.
+    /// </summary>
+    private bool TryAutoBuyOne(Player p, out UnitCard boughtCard)
+    {
+        boughtCard = null;
+
+        // Build list of affordable cards
+        List<UnitCard> affordable = new List<UnitCard>();
+
+        for (int i = 0; i < p.Hand.Count; i++)
+        {
+            UnitCard card = p.Hand[i];
+
+            if (card.Cost > p.Gold)
+                continue;
+
+            RowType row = GetRowForUnitType(card.Type);
+            if (p.Rows[row].Units.Count >= maxUnitsPerRow)
+                continue;
+
+            affordable.Add(card);
+        }
+
+        // Player cannot buy anything → pass
+        if (affordable.Count == 0)
+            return false;
+
+        UnitCard chosen;
+
+        if (!randomizeAIBuys)
+        {
+            // Deterministic: buy cheapest
+            affordable.Sort((a, b) => a.Cost.CompareTo(b.Cost));
+            chosen = affordable[0];
+        }
+        else
+        {
+            // Random: buy any affordable card
+            int index = buyRng.Next(0, affordable.Count);
+            chosen = affordable[index];
+        }
+
+        RowType chosenRow = GetRowForUnitType(chosen.Type);
+
+        // BUY
+        p.Gold -= chosen.Cost;
+        p.Hand.Remove(chosen);
+
+        // PLACE
+        Unit unit = chosen.CreateUnitInstance();
+        ApplyGlobalMultipliers(unit);
+        p.Rows[chosenRow].Units.Add(unit);
+        SpawnWorldVisualForBoughtUnit(p, unit, chosen);
+
+        // DISCARD
+        p.Deck.Discard(chosen);
+
+        Debug.Log($"[BUY-AI] {p.Name} buys {chosen.Name} (Cost={chosen.Cost}) -> {chosenRow} | UnitId=[{unit.InstanceId}] | GoldAfterBuy={p.Gold}");
+
+        // ON-PLAY TRIGGERS
+        AbilitySystem.ExecuteOnPlay(p, GetOpponent(p), unit, this);
+
+        boughtCard = chosen;
+        return true;
+    }
+    #endregion
+
+    #region Rearrangement Phase
+    /// <summary>
+    /// Rearrangement phase: sorts rows by HP and optionally swaps Front/Middle.
+    /// Currently uses simple heuristics (future: let players manually rearrange).
+    /// </summary>
+    private void RearrangementPhase(Player p)
+    {
+        SortRowByHPDescending(p, RowType.Front);
+        SortRowByHPDescending(p, RowType.Middle);
+        SortRowByHPDescending(p, RowType.Back);
+
+        int frontHP = SumRowHP(p, RowType.Front);
+        int middleHP = SumRowHP(p, RowType.Middle);
+
+        // Simple heuristic: if Middle has significantly more HP, swap it to Front
+        if (middleHP > frontHP + 10)
+        {
+            SwapRows(p, RowType.Front, RowType.Middle);
+            Debug.Log($"{p.Name} swaps Front and Middle rows (heuristic).");
+        }
+
+        Debug.Log($"{p.Name} post-rearrange: FrontHP={SumRowHP(p, RowType.Front)} MiddleHP={SumRowHP(p, RowType.Middle)} BackHP={SumRowHP(p, RowType.Back)}");
+    }
+
+    private void SortRowByHPDescending(Player p, RowType row)
+    {
+        p.Rows[row].Units.Sort((u1, u2) => u2.HP.CompareTo(u1.HP));
+    }
+
+    private int SumRowHP(Player p, RowType row)
+    {
+        int total = 0;
+        foreach (var u in p.Rows[row].Units)
+            if (u.IsAlive) total += u.HP;
+        return total;
+    }
+
+    private void SwapRows(Player p, RowType a, RowType b)
+    {
+        if (a == b) return;
+
+        var listA = p.Rows[a].Units;
+        var listB = p.Rows[b].Units;
+
+        var temp = new List<Unit>(listA);
+
+        listA.Clear();
+        listA.AddRange(listB);
+
+        listB.Clear();
+        listB.AddRange(temp);
+    }
+    #endregion
+
+    // ========================================
+    // HELPER METHODS
+    // ========================================
+
+    #region Utility
+    /// <summary>
+    /// Applies global test multipliers to a unit (HP and ATK).
+    /// Used for balancing tests without editing card assets.
+    /// </summary>
+    private void ApplyGlobalMultipliers(Unit u)
+    {
+        float hpMult = Mathf.Max(0.01f, healthMultiplier);
+        float dmgMult = Mathf.Max(0f, damageMultiplier);
+
+        int newAtk = Mathf.RoundToInt(u.ATK * dmgMult);
+        if (newAtk < 0) newAtk = 0;
+        u.ATK = newAtk;
+
+        int newMax = Mathf.RoundToInt(u.MaxHP * hpMult);
+        if (newMax < 1) newMax = 1;
+
+        u.MaxHP = newMax;
+        u.HP = newMax;
+    }
+
+    /// <summary>
+    /// Maps UnitType to RowType for placement.
+    /// </summary>
+    private RowType GetRowForUnitType(UnitType type)
+    {
+        return type switch
+        {
+            UnitType.Infantry => RowType.Front,
+            UnitType.Vehicle => RowType.Middle,
+            UnitType.Ranged => RowType.Middle,
+            UnitType.Air => RowType.Back,
+            _ => RowType.Front
+        };
+    }
+
+    /// <summary>
+    /// Returns the opponent of a given player.
+    /// </summary>
+    private Player GetOpponent(Player p)
+    {
+        return (p == playerA) ? playerB : playerA;
+    }
+
+    /// <summary>
+    /// Checks if the battle is over (either commander dead).
+    /// </summary>
+    private bool IsBattleOver()
+    {
+        return playerA.CommanderHP <= 0 || playerB.CommanderHP <= 0;
+    }
+    #endregion
+
+    #region World Visual Spawning
+    /// <summary>
+    /// Spawns a world-space visual prefab for a bought unit.
+    /// Uses UnitCardDefinition lookup to find the correct prefab.
+    /// </summary>
+    private void SpawnWorldVisualForBoughtUnit(Player buyer, Unit unit, UnitCard chosen)
+    {
+        if (fieldSpawner == null) return;
+        if (buyer == null || unit == null || chosen == null) return;
+
+        if (defByName == null || !defByName.TryGetValue(chosen.Name, out var def) || def == null)
+        {
+            Debug.LogWarning($"[WORLD] No UnitCardDefinition found for '{chosen.Name}'. Did you add it to cardDefinitions?");
+            return;
+        }
+
+        var side = (buyer == playerA) ? PlayerSide.A : PlayerSide.B;
+        fieldSpawner.TrySpawn(def, side, unit.InstanceId);
+    }
+    #endregion
+
+    #region Debug Logging
+    /// <summary>
+    /// Logs the current state of a player's board (all three rows).
+    /// </summary>
+    private void LogBoardState(Player p, string label)
+    {
+        string RowDump(RowType rowType)
+        {
+            var units = p.Rows[rowType].Units;
+            if (units.Count == 0) return "(empty)";
+
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            for (int i = 0; i < units.Count; i++)
+            {
+                Unit u = units[i];
+                sb.Append($"[{u.InstanceId}] {u.Name} HP={u.HP} ATK={u.ATK}");
+                if (i < units.Count - 1) sb.Append(" | ");
+            }
+            return sb.ToString();
+        }
+
+        Debug.Log(
+            $"[BOARD] {label} :: {p.Name}\n" +
+            $"  Front : {RowDump(RowType.Front)}\n" +
+            $"  Middle: {RowDump(RowType.Middle)}\n" +
+            $"  Back  : {RowDump(RowType.Back)}"
+        );
+    }
+
+    /// <summary>
+    /// Dumps all events from a RoundReport to the console (for debugging).
+    /// </summary>
+    private void DumpRoundReport(RoundReport rr)
+    {
+        int roundNum = -1;
+        if (rr != null && rr.Events != null && rr.Events.Count > 0)
+            roundNum = rr.Events[0].RoundNumber;
+
+        Debug.Log($"===== ROUND REPORT (Round {roundNum}) =====");
+
+        foreach (var e in rr.Events)
+        {
+            if (!string.IsNullOrEmpty(e.Note))
+                Debug.Log(e.Note);
+            else
+                Debug.Log($"Event: {e.Type}");
+        }
+
+        Debug.Log($"===== END ROUND REPORT (Round {roundNum}) =====");
+    }
+    #endregion
+
+    // ========================================
+    // IOnPlayApi IMPLEMENTATION
+    // ========================================
+    // These methods are called by AbilitySystem when on-play abilities trigger.
+
+    #region On-Play Ability Handlers
+    /// <summary>
+    /// ON-PLAY: Duplicates a unit by finding another copy in the deck and playing it.
+    /// Used by: DuplicateSelfFromDeckOnPlay ability.
+    /// 
+    /// FLOW:
+    /// 1. Search deck for matching unit name
+    /// 2. Check if row has space
+    /// 3. Create and place the duplicate
+    /// 4. Trigger on-play (but prevent infinite loops)
+    /// </summary>
+    public bool TryPlayCopyFromDeck(Player owner, Unit sourceUnit)
+    {
+        // 1) Find another copy in deck
+        UnitCard copyCard = owner.Deck.TryRemoveFirstMatchingFromDeck(
+            c => c.Name == sourceUnit.Name
+        );
+
+        if (copyCard == null)
+            return false;
+
+        // 2) Check row space
+        RowType row = GetRowForUnitType(copyCard.Type);
+
+        if (owner.Rows[row].Units.Count >= maxUnitsPerRow)
+        {
+            // No space → discard card safely
+            owner.Deck.Discard(copyCard);
+            return false;
+        }
+
+        // 3) Create and place
+        Unit copyUnit = copyCard.CreateUnitInstance();
+        ApplyGlobalMultipliers(copyUnit);
+        owner.Rows[row].Units.Add(copyUnit);
+
+        owner.Deck.Discard(copyCard);
+
+        Debug.Log(
+            $"[ON-PLAY] {owner.Name} plays extra copy of {copyUnit.Name} " +
+            $"-> {row} | UnitId=[{copyUnit.InstanceId}]"
+        );
+
+        // 4) IMPORTANT: Prevent infinite loops
+        // If the copied unit ALSO has DuplicateSelfFromDeckOnPlay,
+        // do NOT allow it to recursively trigger itself.
+        if (copyUnit.Ability != UnitAbilityType.DuplicateSelfFromDeckOnPlay)
+        {
+            AbilitySystem.ExecuteOnPlay(
+                owner,
+                GetOpponent(owner),
+                copyUnit,
+                this
+            );
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// ON-PLAY: Destroys the strongest enemy vehicle if the enemy vehicle row is full.
+    /// Used by: DestroyStrongestEnemyVehicleIfEnemyVehicleRowIsFullOnPlay ability.
+    /// 
+    /// "Strongest" = highest ATK, then highest HP (tiebreaker).
+    /// </summary>
+    public void TryDestroyStrongestEnemyVehicleIfRowFull(Player owner, Player enemy)
+    {
+        RowType vehicleRow = RowType.Middle;
+
+        // Only triggers if enemy middle row is full
+        if (enemy.Rows[vehicleRow].Units.Count < maxUnitsPerRow)
+        {
+            Debug.Log($"[ON-PLAY] {owner.Name} destroy-check: enemy vehicle row not full, nothing happens.");
+            return;
+        }
+
+        // Find the strongest enemy vehicle
+        Unit target = null;
+        foreach (var u in enemy.Rows[vehicleRow].Units)
+        {
+           // For THIS ability, we treat Ranged as "vehicle-like" too.
+if (u.Type != UnitType.Vehicle && u.Type != UnitType.Ranged)
+    continue;
+
+
+            if (target == null)
+            {
+                target = u;
+                continue;
+            }
+
+            // Strongest = highest ATK, then highest HP
+            if (u.ATK > target.ATK) target = u;
+            else if (u.ATK == target.ATK && u.HP > target.HP) target = u;
+        }
+
+        if (target == null)
+        {
+            Debug.Log($"[ON-PLAY] {owner.Name} destroy-check: no enemy vehicles in row, nothing happens.");
+            return;
+        }
+
+        // Destroy immediately
+        enemy.Rows[vehicleRow].Units.Remove(target);
+        target.HP = 0;
+        enemy.DiscardPile.Add(target);
+
+        Debug.Log($"[ON-PLAY] {owner.Name} DESTROYS enemy vehicle: [{target.InstanceId}] {target.Name} ATK={target.ATK} HP={target.HP} from {vehicleRow}");
+    }
+
+    /// <summary>
+    /// ON-PLAY: Marks a random enemy unit for 2x vulnerability.
+    /// Used by: TargetMark ability.
+    /// 
+    /// RULE:
+    /// - Only ONE marked unit per enemy at a time (previous mark is cleared)
+    /// - Randomly selects from all alive enemy units
+    /// - Mark persists until unit dies or new mark is applied
+    /// 
+    /// RANDOMNESS:
+    /// - If targetMarkUseTrueRandom is ON: uses UnityEngine.Random (true random)
+    /// - If OFF: uses buyRng (seeded/repeatable)
+    /// </summary>
+    public void ApplyTargetMarkOnPlay(Player owner, Player enemy, Unit markerUnit)
+    {
+        // Build list of all alive enemy units
+        List<Unit> aliveEnemies = new List<Unit>();
+
+        foreach (var row in enemy.Rows.Values)
+        {
+            foreach (var u in row.Units)
+            {
+                if (u.IsAlive)
+                    aliveEnemies.Add(u);
+            }
+        }
+
+        if (aliveEnemies.Count == 0)
+        {
+            Debug.Log($"[ON-PLAY][TARGET] {owner.Name}'s {markerUnit.Name} tried to mark, but enemy has no alive units.");
+            return;
+        }
+
+        // Pick a random target
+        int index;
+        if (targetMarkUseTrueRandom)
+        {
+            index = UnityEngine.Random.Range(0, aliveEnemies.Count);
+        }
+        else
+        {
+            // Seeded RNG for repeatable tests
+            index = buyRng.Next(0, aliveEnemies.Count);
+        }
+
+        Unit target = aliveEnemies[index];
+
+        // Don't clear previous marks - allow multiple units to be marked!
+        // (Marks are cleared when units die or at round end)
+        
+        target.IsMarkedTarget = true;
+
+        // Find the row for logging clarity
+        RowType targetRow = RowType.Front;
+        foreach (var kvp in enemy.Rows)
+        {
+            if (kvp.Value.Units.Contains(target))
+            {
+                targetRow = kvp.Key;
+                break;
+            }
+        }
+
+        Debug.Log($"[ON-PLAY][TARGET] {owner.Name}'s {markerUnit.Name} marks {enemy.Name}'s {target.Name} (Row={targetRow}, UnitId={target.InstanceId})");
+    }
+    #endregion
+}

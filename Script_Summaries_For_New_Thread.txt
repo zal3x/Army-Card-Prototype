@@ -1,0 +1,244 @@
+Army Auto-Battler Prototype — Script Summaries (handoff for new ChatGPT thread)
+Generated: January 17, 2026
+
+Goal of this document: give a quick, plain-English map of what each C# script does,
+how they connect, and what was recently changed (ability system + combat reporting).
+
+================================================================================
+HIGH-LEVEL ARCHITECTURE
+================================================================================
+- The game has two main “worlds”:
+  1) Buy/placement phase (deck, hand, gold, placing units into rows)
+  2) Combat phase (fully deterministic simulation that writes a CombatReport)
+
+- Combat is split into:
+  • CombatResolver (simulation): produces CombatReport events, mutates Unit HP, commander HP, etc.
+  • CombatPlayback (presentation): replays CombatReport events for UI/animation/logging
+
+- Abilities are being moved toward a centralized system:
+  • On-play abilities run during buy/placement.
+  • Combat modifiers run during CombatResolver’s deterministic simulation.
+
+- Recent work (this thread):
+  • Added CombatEventType.DebugNote to separate “debug noise” from UI-safe events.
+  • Reduced console spam by avoiding Debug.Log in simulation (prefer playback/report dumper).
+  • Implemented 4 abilities end-to-end in CombatResolver:
+      - TauntRowFirst (row routing)
+      - TargetMark (vulnerability / 2x HP damage per stream)
+      - ArmorPiercing (attacker-side: disables tank armor reduction)
+      - Counterattack (defender-side: reflects part of HP damage back as a delayed stream)
+  • Implemented/adjusted Navy Seal bypass commander damage to use a multiplier correctly.
+
+
+================================================================================
+FILE-BY-FILE SUMMARIES
+================================================================================
+
+
+--- BattleTestRunner.cs ---
+What it is:
+- A “simulation harness” MonoBehaviour that runs rounds automatically.
+- Responsible for: seeding RNG, building runtime decks, drawing hands, auto-buying, placing units, then calling combat.
+
+Key responsibilities:
+- Creates Player A/B, assigns decks, hands, gold, rows.
+- Runs the core loop:
+  Draw -> Alternating Buy -> (On-play abilities) -> Rearrangement (if any) -> ResolveCombat -> Playback events.
+- Acts as the Buy-Phase controller that abilities can call back into.
+  (Example callbacks: play copy from deck, mark a target, destroy strongest unit, etc.)
+
+Important notes:
+- This file is intentionally “chatty” (Debug.Log) because it is test scaffolding.
+- Recent cleanup removed an accidental ':contentReference[...]' artifact and reduced debug spam.
+
+
+--- CombatResolver.cs ---
+What it is:
+- The deterministic combat simulator. This is the “truth engine.”
+- Input: two Players (with rows of Units already placed)
+- Output: CombatReport (ordered CombatEvents) + mutated state (unit HP, commander HP, dead units moved to discard)
+
+Core phases:
+1) Start events (commander HP, combat start)
+2) Pre-emptive strike phase:
+   - Collect strikes from both sides, declare them, then apply simultaneously per target.
+   - Currently does NOT apply ArmorPiercing in pre-emptive (by design) because attacker-context is not wired here yet.
+3) Snapshot attack totals after pre-emptive deaths:
+   - Uses AbilitySystem.GetAttackForSnapshot(...) for combat-time ATK modifiers.
+4) Commander bypass damage (Navy Seal style):
+   - Adds direct commander damage using AbilitySystem.GetCommanderBypassDamage(unit).
+5) Main stream damage:
+   - ApplyDamageToEntireArmy(attacker, defender, streamDamage, ...) applies to rows in order:
+     default Front -> Middle -> Back, but TauntRowFirst can reorder a row to be attacked first.
+   - ApplyDamageToRow(...) iterates units, uses ResolveIncomingDamageForUnit(...) to decide:
+     • how much stream is absorbed, and
+     • how much HP is lost.
+6) Counterattack:
+   - Units with Counterattack reflect 50% of HP damage taken back to attacker.
+   - Counter damage is accumulated and applied after both main streams (prevents counter loops).
+7) Cleanup:
+   - Dead units moved from rows to player discard pile.
+
+Abilities implemented here (current):
+- TauntRowFirst: reorders the row attack order so a taunt row is hit first.
+- TargetMark: marked units take 2x HP damage per stream damage (more lethal without amplifying total stream).
+- ArmorPiercing: if attacker has ANY alive ArmorPiercing unit, tank armor reduction is disabled.
+- Counterattack: if damaged but not destroyed, reflect 50% back as counter stream.
+- Tank armor: ReduceIncomingDamage50Percent special behavior (overwhelm threshold, otherwise half HP damage).
+
+Logging philosophy:
+- CombatReport events are the source of truth.
+- DebugNote events are allowed for development but should be filtered/disabled for UI.
+
+
+--- CombatPlayback.cs ---
+What it is:
+- A coroutine-driven “event player” for CombatReport.
+- Turns CombatEvents into logs now; later it will trigger UI animations.
+
+Key responsibilities:
+- Takes CombatReport.Events and plays them in order with delays (for readability / animation pacing).
+- Has a toggle to log events (pattern used to avoid printing during simulation).
+
+Why it exists:
+- Simulation must remain deterministic and not depend on frame timing.
+- Playback can be timed/animated without changing the combat truth.
+
+
+--- CombatEvent.cs ---
+What it is:
+- Data model for one atomic combat happening (a line in the CombatReport).
+- Stores:
+  • Type (CombatEventType)
+  • SourcePlayer / TargetPlayer
+  • SourceUnit / TargetUnit
+  • Row
+  • Amount
+  • Note (human-readable text)
+
+Notes:
+- CombatEventType includes UI-safe “real events” (damage applied, unit destroyed, commander damaged)
+  and now also includes DebugNote for dev-only notes.
+
+
+--- RoundEventType.cs ---
+What it is:
+- Enum for round-level events (buy phase / economy phase / etc.).
+- Not fully wired into the same event-reporting system as combat yet.
+- Idea: eventually mirror CombatReport with a RoundReport so buy-phase logs become UI events.
+
+
+--- Player.cs ---
+What it is:
+- Runtime state for one player in a match.
+
+Holds:
+- Name
+- Gold
+- CommanderHP
+- Deck (SimpleDeck)
+- Hand (List<UnitCard> or similar)
+- Rows (Dictionary<RowType, Row>)
+- DiscardPile (List<Unit>)
+
+Used by:
+- BattleTestRunner to manage buy/draw flow.
+- CombatResolver to read/write combat results (HP changes, deaths, discard moves).
+
+
+--- Row.cs ---
+What it is:
+- One lane/row on the board (Front/Middle/Back).
+- Holds a RowType and a List<Unit> Units.
+
+Used by:
+- Player.Rows dictionary
+- CombatResolver damage routing + iteration
+- BattleTestRunner placement logic
+
+
+--- Unit.cs ---
+What it is:
+- Runtime instance of a unit on the board.
+
+Typical fields (conceptually):
+- InstanceId (unique id used for determinism / tie-breaking)
+- Name, Type (UnitType), HP, MaxHP, ATK
+- Ability (UnitAbilityType) + AbilityData (amount/multiplier/etc. depending on ability)
+- Flags like IsAlive, IsMarkedTarget (for TargetMark)
+- Optional PreemptiveStrikeData (for pre-emptive strikes)
+
+Used by:
+- CombatResolver (mutates HP, checks ability rules)
+- CombatPlayback (displays events)
+
+
+--- Enums.cs ---
+What it is:
+- Shared enums used across the project.
+
+Includes:
+- UnitType (Infantry, Ranged, Vehicle, Air, etc.)
+- RowType (Front, Middle, Back)
+- UnitAbilityType (the master list of abilities)
+
+Notes:
+- We moved TauntRowFirst and TargetMark into the “On-play ability” group conceptually,
+  but they still remain in UnitAbilityType as identifiers.
+
+
+--- UnitCardDefinition.cs ---
+What it is:
+- ScriptableObject definition for a card/unit.
+- This is your “data asset” version: what you author in the Unity editor.
+
+Typical responsibilities:
+- Stores base stats (ATK/HP), type, ability, and ability data
+- Converts itself into a runtime UnitCard (or runtime Unit) via a factory method
+  like ToRuntimeCard().
+
+Used by:
+- DeckListDefinition (build deck from definitions)
+- UnitCard (to instantiate Unit instances)
+
+
+--- DeckListDefinition.cs ---
+What it is:
+- ScriptableObject (or serializable) that defines a deck list for a player.
+- Contains entries like (UnitCardDefinition, count).
+
+What it does:
+- BuildRuntimeDeck() produces a runtime list of UnitCard objects,
+  often expanding counts into a big list and shuffling later.
+
+Used by:
+- BattleTestRunner to create Player decks for tests.
+
+
+--- UnitCard.cs ---
+What it is:
+- Runtime “card” object in a deck/hand/discard.
+- A wrapper around data needed to create a Unit instance at runtime.
+
+Key behavior:
+- CreateUnitInstance(): spawns a new Unit with fresh InstanceId and copied stats/ability data.
+- Used by deck/hand logic and buy/placement logic.
+
+
+--- SimpleDeck.cs ---
+What it is:
+- A lightweight runtime deck implementation.
+
+Typical piles:
+- Draw pile
+- Discard pile
+
+Key behavior:
+- Shuffle / draw
+- Discard(card)
+- TryRemoveFirstMatchingFromDeck(predicate): used for abilities like DuplicateSelfFromDeckOnPlay.
+
+Used by:
+- BattleTestRunner (draw/buy)
+- AbilitySystem callbacks (copy-from-deck play)
+

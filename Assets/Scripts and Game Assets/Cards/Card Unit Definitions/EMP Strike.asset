@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c584815bb2e4c49459f143b0b7d6511f, type: 3}
+  m_Name: EMP Strike
+  m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
+  cardName: EMP Strike
+  type: 0
+  cost: 0
+  hp: 0
+  atk: 0
+  ability: 0
+  countsAsVehicle: 0
+  abilityParams:
+    Multiplier: 1
+    Amount: 0
+  isSpecialCard: 1
+  specialType: 8
+  hasPreemptive: 0
+  preemptiveTargetType: 0
+  preemptiveDamage: 0
+  targetBackRowOnly: 0
+  worldPrefabA: {fileID: 0}
+  worldPrefabB: {fileID: 0}
+  portraitSprite: {fileID: 0}
+  backgroundSprite: {fileID: 7327949687151864162, guid: 36abbbaaff9e24cfa82aeec788731f8c, type: 3}
+  abilityDescription: 

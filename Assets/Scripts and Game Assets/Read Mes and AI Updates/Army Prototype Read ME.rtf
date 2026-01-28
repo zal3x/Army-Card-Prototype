@@ -1,0 +1,296 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fnil\fcharset0 AppleColorEmoji;\f2\fnil\fcharset0 LucidaGrande;
+\f3\fswiss\fcharset0 ArialMT;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red244\green246\blue247;\red193\green193\blue193;
+\red255\green255\blue255;\red191\green191\blue191;}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;\cssrgb\c96471\c97255\c97647;\cssrgb\c80000\c80000\c80000;
+\cssrgb\c100000\c100000\c100000;\csgray\c79525;}
+\margl1440\margr1440\vieww28560\viewh16960\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 # 
+\f1 \uc0\u9876 \u65039 
+\f0  Army Card Prototype \'96 Gameplay & Systems Overview\
+\
+## Core Concept\
+A **turn-based auto-battler with deck-building elements**.\
+\
+Players build an army over multiple rounds by **drawing cards, buying units with gold, arranging formations**, and then watching **deterministic combat resolve automatically**.\
+\
+There is no manual control during combat \'97 all strategy happens **before** combat begins.\
+\
+---\
+\
+## 
+\f1 \uc0\u55358 \u56813 
+\f0  Battle Flow\
+\
+Each battle consists of multiple rounds (currently **3**), unless ended early by commander death.\
+\
+### Round Structure\
+\
+1. **Gold Phase**\
+   - Round 1: players gain a larger starting gold amount\
+   - Rounds 2+: players gain a fixed gold per round\
+\
+2. **Draw Phase**\
+   - Round 1: players draw a starting hand (e.g. 10 cards)\
+   - Rounds 2+: players draw +1 card at the start of the round\
+\
+3. **Buy Phase**\
+   - Players spend gold to play unit cards from hand onto the battlefield\
+   - Units are placed automatically by heuristics (temporary)\
+   - Purchased cards are discarded after use\
+ -Players alternate buy phase, player A buys then B then A and so on until can\'92t buy or pass\
+4. Buy phase abilities\
+	- some units/unit cards have abilities that trigger immediately after being bought which is equivalent to being placed on the field. \
+\
+5. **Rearrangement Phase** *(rounds \uc0\u8805  2)*\
+   - Units may be reordered within rows\
+   - Front and Middle rows may be swapped\
+   - Back row remains fixed\
+   - Current logic uses simple heuristics (e.g. higher HP units move forward)\
+\
+6. **Combat Phase**\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf0  - unit abilities are triggered if specified before combat - (damage reduction, damage multipliers, etc.)\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf0    - Combat resolves automatically and deterministically\
+   - A detailed event log is produced\
+   - Events are replayed via coroutine-based playback\
+ - unit abilities are triggered if specified before combat\
+\
+---\
+\
+## 
+\f1 \uc0\u55358 \u56817 
+\f0  Battlefield Model\
+\
+Each player has **three rows**:\
+\
+- **Front**\
+- **Middle**\
+- **Back**\
+\
+### Targeting Rules\
+- Damage is applied **Front 
+\f2 \uc0\u8594 
+\f0  Middle 
+\f2 \uc0\u8594 
+\f0  Back**\
+- Commander is protected unless:\
+  - All units are destroyed\
+  - Leftover damage remains\
+\
+---\
+\
+## 
+\f1 \uc0\u55358 \u56982 
+\f0  Units\
+\
+Each unit has:\
+-Name\
+- HP\
+- ATK\
+- Cost\
+- Type\
+-Pre-emptive strike\
+-ability\
+-ability data\
+\
+\
+### Unit Types\
+- **Infantry** \'96 typically Front\
+- **Vehicle / Ranged** \'96 typically Middle\
+- **Air** \'96 typically Back\
+\
+Some units may have **special effects** (e.g. pre-emptive strikes or ask multipliers).\
+\
+---\
+\
+## 
+\f1 \uc0\u9876 \u65039 
+\f0  Combat Resolution\
+\
+Combat is deterministic and resolves in phases.\
+\
+### 1. Pre-emptive Phase\
+- Certain units may perform **pre-emptive strikes**\
+- All pre-emptive damage resolves simultaneously\
+- Units destroyed here do **not** contribute to main attack\
+\
+### 2. Main Combat Phase\
+- Each side\'92s **total ATK** is calculated from all surviving units\
+- Damage is applied row-by-row\
+- Damage spills from unit to unit\
+- Every damage allocation is logged as an event\
+- abilities may trigger\
+\
+### 3. Cleanup Phase\
+- Dead units are removed from rows\
+- Dead units are moved to discard piles\
+\
+---\
+\
+## 
+\f1 \uc0\u55357 \u56540 
+\f0  Event System\
+\
+Combat generates a **CombatReport**, containing an ordered list of `CombatEvent`s.\
+\
+### Event Types Include\
+- `CombatStart`\
+- `CombatEnd`\
+- `PreemptiveStrikeDeclared`\
+- `DamageAppliedToUnit`\
+- `UnitDestroyed`\
+- `CommanderDamaged`\
+- `CleanupMovedToDiscard`\
+- Debug / summary events (row start/end, damage summaries)\
+\
+### Playback\
+- `CombatPlayback` replays events using a coroutine\
+- Events are processed sequentially with optional delays\
+- Designed to later support:\
+  - Animations\
+  - VFX\
+  - UI hooks\
+  - Replay / speed control\
+\
+---\
+\
+## 
+\f1 \uc0\u55356 \u56527 
+\f0  Deck & Economy System\
+\
+### Deck\
+- Players start with a predefined deck\
+- Deck is shuffled once at battle start\
+- Cards are drawn into hand\
+- Played cards are discarded\
+\
+### Gold\
+- Gold persists between rounds\
+- Gold is spent only during Buy Phase\
+- No selling or refunds yet\
+\
+---\
+\
+## 
+\f1 \uc0\u9989 
+\f0  Current Features\
+\
+- Full multi-round battle loop\
+- Draw / Buy / Rearrangement / Combat phases\
+- Deterministic combat resolution\
+- Pre-emptive strike system\
+- Accurate damage allocation with full logging\
+- Coroutine-based combat playback\
+- Debug-friendly, inspectable event stream\
+\
+---\
+\
+## 
+\f1 \uc0\u55357 \u56999 
+\f0  Planned Features\
+\
+### Short-Term\
+- Manual unit placement (UI-driven)\
+- Player-controlled rearrangement\
+- Visual battlefield representation\
+- Combat animations tied to events\
+\
+### Medium-Term\
+- Unit abilities & triggered effects\
+- Buffs & debuffs\
+- Status effects (stun, shield, poison)\
+- Commander abilities\
+\
+### Long-Term\
+- Persistent deck progression\
+- Drafting / shop rerolls\
+- PvE encounters and AI scaling\
+- PvP simulations\
+- Save/load battle states\
+- Replay viewer\
+\
+---\
+\
+## 
+\f1 \uc0\u55356 \u57263 
+\f0  Design Philosophy\
+\
+- **Deterministic & inspectable combat**\
+- **Event-driven simulation**\
+- **Separation of simulation and presentation**\
+- Built for **rapid iteration and testing**\
+\
+---\
+\
+## 
+\f1 \uc0\u55357 \u57056 \u65039 
+\f0  Notes for Developers\
+\
+- Combat logic lives in `CombatResolver`\
+- Playback logic lives in `CombatPlayback`\
+- Combat state is communicated exclusively through `CombatEvent`s\
+- Logging verbosity is intentional during proof-of-concept stage\
+\
+Recently I added special unit abilities like:\
+
+\itap1\trowd \taflags5 \trgaph108\trleft-108 \trbrdrt\brdrnil \trbrdrl\brdrnil \trbrdrr\brdrnil 
+\clvertalb \clcbpat3 \clwWidth1860\clftsWidth3 \clbrdrt\brdrs\brdrw20\brdrcf4 \clbrdrl\brdrs\brdrw20\brdrcf4 \clbrdrb\brdrs\brdrw20\brdrcf4 \clbrdrr\brdrs\brdrw20\brdrcf4 \clpadt40 \clpadl60 \clpadb40 \clpadr60 \gaph\cellx1728
+\clvertalb \clcbpat3 \clwWidth1860\clftsWidth3 \clbrdrt\brdrs\brdrw20\brdrcf4 \clbrdrl\brdrs\brdrw20\brdrcf4 \clbrdrb\brdrs\brdrw20\brdrcf4 \clbrdrr\brdrs\brdrw20\brdrcf4 \clpadt40 \clpadl60 \clpadb40 \clpadr60 \gaph\cellx3456
+\clvertalb \clcbpat3 \clwWidth1860\clftsWidth3 \clbrdrt\brdrs\brdrw20\brdrcf4 \clbrdrl\brdrs\brdrw20\brdrcf4 \clbrdrb\brdrs\brdrw20\brdrcf4 \clbrdrr\brdrs\brdrw20\brdrcf4 \clpadt40 \clpadl60 \clpadb40 \clpadr60 \gaph\cellx5184
+\clvertalb \clcbpat3 \clwWidth1860\clftsWidth3 \clbrdrt\brdrs\brdrw20\brdrcf4 \clbrdrl\brdrs\brdrw20\brdrcf4 \clbrdrb\brdrs\brdrw20\brdrcf4 \clbrdrr\brdrs\brdrw20\brdrcf4 \clpadt40 \clpadl60 \clpadb40 \clpadr60 \gaph\cellx6912
+\clvertalb \clcbpat3 \clwWidth6820\clftsWidth3 \clbrdrt\brdrs\brdrw20\brdrcf4 \clbrdrl\brdrs\brdrw20\brdrcf4 \clbrdrb\brdrs\brdrw20\brdrcf4 \clbrdrr\brdrs\brdrw20\brdrcf4 \clpadt40 \clpadl60 \clpadb40 \clpadr60 \gaph\cellx8640
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+
+\f3\fs26\fsmilli13333 \cf0 \expnd0\expndtw0\kerning0
+RPG\cell 
+\pard\intbl\itap1\pardeftab720\qr\partightenfactor0
+\cf0 2\cell 
+\pard\intbl\itap1\pardeftab720\qr\partightenfactor0
+\cf0 5\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 4\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 Deals double damage if enemy has tanks on the field\cell \row
+
+\itap1\trowd \taflags5 \trgaph108\trleft-108 \trbrdrl\brdrnil \trbrdrr\brdrnil 
+\clvertalb \clcbpat5 \clwWidth1860\clftsWidth3 \clbrdrt\brdrs\brdrw20\brdrcf4 \clbrdrl\brdrs\brdrw20\brdrcf4 \clbrdrb\brdrs\brdrw20\brdrcf4 \clbrdrr\brdrs\brdrw20\brdrcf4 \clpadt40 \clpadl60 \clpadb40 \clpadr60 \gaph\cellx1728
+\clvertalb \clcbpat5 \clwWidth1860\clftsWidth3 \clbrdrt\brdrs\brdrw20\brdrcf4 \clbrdrl\brdrs\brdrw20\brdrcf4 \clbrdrb\brdrs\brdrw20\brdrcf4 \clbrdrr\brdrs\brdrw20\brdrcf4 \clpadt40 \clpadl60 \clpadb40 \clpadr60 \gaph\cellx3456
+\clvertalb \clcbpat5 \clwWidth1860\clftsWidth3 \clbrdrt\brdrs\brdrw20\brdrcf4 \clbrdrl\brdrs\brdrw20\brdrcf4 \clbrdrb\brdrs\brdrw20\brdrcf4 \clbrdrr\brdrs\brdrw20\brdrcf4 \clpadt40 \clpadl60 \clpadb40 \clpadr60 \gaph\cellx5184
+\clvertalb \clcbpat5 \clwWidth1860\clftsWidth3 \clbrdrt\brdrs\brdrw20\brdrcf4 \clbrdrl\brdrs\brdrw20\brdrcf4 \clbrdrb\brdrs\brdrw20\brdrcf4 \clbrdrr\brdrs\brdrw20\brdrcf4 \clpadt40 \clpadl60 \clpadb40 \clpadr60 \gaph\cellx6912
+\clvertalb \clcbpat5 \clwWidth6940\clftsWidth3 \clbrdrt\brdrs\brdrw20\brdrcf4 \clbrdrl\brdrs\brdrw20\brdrcf4 \clbrdrb\brdrs\brdrw20\brdrcf4 \clbrdrr\brdrs\brdrw20\brdrcf6 \clpadt40 \clpadl0 \clpadb40 \clpadr0 \gaph\cellx8640
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 Navy Seal\cell 
+\pard\intbl\itap1\pardeftab720\qr\partightenfactor0
+\cf0 4\cell 
+\pard\intbl\itap1\pardeftab720\qr\partightenfactor0
+\cf0 7\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 6\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 In addition to army damage, a separate .25x (rounded to nearest whole number) damage goes straight to commander bypassing the army\cell \row
+
+\itap1\trowd \taflags5 \trgaph108\trleft-108 \trbrdrl\brdrnil \trbrdrt\brdrnil \trbrdrr\brdrnil 
+\clvertalb \clcbpat3 \clwWidth1860\clftsWidth3 \clbrdrt\brdrs\brdrw20\brdrcf4 \clbrdrl\brdrs\brdrw20\brdrcf4 \clbrdrb\brdrs\brdrw20\brdrcf4 \clbrdrr\brdrs\brdrw20\brdrcf4 \clpadt40 \clpadl60 \clpadb40 \clpadr60 \gaph\cellx1728
+\clvertalb \clcbpat3 \clwWidth1860\clftsWidth3 \clbrdrt\brdrs\brdrw20\brdrcf4 \clbrdrl\brdrs\brdrw20\brdrcf4 \clbrdrb\brdrs\brdrw20\brdrcf4 \clbrdrr\brdrs\brdrw20\brdrcf4 \clpadt40 \clpadl60 \clpadb40 \clpadr60 \gaph\cellx3456
+\clvertalb \clcbpat3 \clwWidth1860\clftsWidth3 \clbrdrt\brdrs\brdrw20\brdrcf4 \clbrdrl\brdrs\brdrw20\brdrcf4 \clbrdrb\brdrs\brdrw20\brdrcf4 \clbrdrr\brdrs\brdrw20\brdrcf4 \clpadt40 \clpadl60 \clpadb40 \clpadr60 \gaph\cellx5184
+\clvertalb \clcbpat3 \clwWidth1860\clftsWidth3 \clbrdrt\brdrs\brdrw20\brdrcf4 \clbrdrl\brdrs\brdrw20\brdrcf4 \clbrdrb\brdrs\brdrw20\brdrcf4 \clbrdrr\brdrs\brdrw20\brdrcf4 \clpadt40 \clpadl60 \clpadb40 \clpadr60 \gaph\cellx6912
+\clvertalb \clcbpat3 \clwWidth6820\clftsWidth3 \clbrdrt\brdrs\brdrw20\brdrcf4 \clbrdrl\brdrs\brdrw20\brdrcf4 \clbrdrb\brdrs\brdrw20\brdrcf4 \clbrdrr\brdrs\brdrw20\brdrcf4 \clpadt40 \clpadl60 \clpadb40 \clpadr60 \gaph\cellx8640
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 Armoured Tank\cell 
+\pard\intbl\itap1\pardeftab720\qr\partightenfactor0
+\cf0 7\cell 
+\pard\intbl\itap1\pardeftab720\qr\partightenfactor0
+\cf0 24\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 12\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 Incoming damage <(2*hp) reduced by 50% for this unit only. If incoming damage exceeds (2*hp) then unit is destroyed \cell \lastrow\row
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 \kerning1\expnd0\expndtw0 \
+}

@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c584815bb2e4c49459f143b0b7d6511f, type: 3}
+  m_Name: Card_Armored_Tank
+  m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
+  cardName: Armored Tank
+  type: 1
+  cost: 22
+  hp: 20
+  atk: 22
+  ability: 5
+  countsAsVehicle: 0
+  abilityParams:
+    Multiplier: 1
+    Amount: 0
+  isSpecialCard: 0
+  specialType: 0
+  hasPreemptive: 0
+  preemptiveTargetType: 0
+  preemptiveDamage: 0
+  targetBackRowOnly: 0
+  worldPrefabA: {fileID: 5123729864731270809, guid: bab86d49be759482084ff55e3bc3f0d0, type: 3}
+  worldPrefabB: {fileID: 4959786469833489690, guid: 082944d02fe684c789b4801379158f2f, type: 3}
+  portraitSprite: {fileID: -4068025557870780472, guid: d43f9532ff2fb44b990374c67fcd17fb, type: 3}
+  backgroundSprite: {fileID: 0}
+  abilityDescription: 

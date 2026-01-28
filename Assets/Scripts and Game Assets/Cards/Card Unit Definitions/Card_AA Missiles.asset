@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c584815bb2e4c49459f143b0b7d6511f, type: 3}
+  m_Name: Card_AA Missiles
+  m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
+  cardName: AA Missilies
+  type: 3
+  cost: 10
+  hp: 8
+  atk: 10
+  ability: 0
+  countsAsVehicle: 0
+  abilityParams:
+    Multiplier: 1
+    Amount: 0
+  isSpecialCard: 0
+  specialType: 0
+  hasPreemptive: 1
+  preemptiveTargetType: 2
+  preemptiveDamage: 5
+  targetBackRowOnly: 1
+  worldPrefabA: {fileID: 2110866761417991444, guid: 744adde8c08d646c5ad99c69895bb0ee, type: 3}
+  worldPrefabB: {fileID: 2302628252172979008, guid: 112f793da1518469c8274a61e2b944ee, type: 3}
+  portraitSprite: {fileID: -3047838863343531803, guid: 977044831f51e4bd18d06f6c3571a557, type: 3}
+  backgroundSprite: {fileID: 0}
+  abilityDescription: 
