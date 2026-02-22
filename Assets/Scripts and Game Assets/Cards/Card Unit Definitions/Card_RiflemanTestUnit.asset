@@ -17,6 +17,7 @@ MonoBehaviour:
   cost: 100
   hp: 100
   atk: 100
+  rarity: 0
   ability: 0
   countsAsVehicle: 0
   abilityParams:

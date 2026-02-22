@@ -17,8 +17,21 @@ MonoBehaviour:
   cost: 12
   hp: 8
   atk: 26
+  rarity: 0
   ability: 0
+  countsAsVehicle: 0
+  abilityParams:
+    Multiplier: 1
+    Amount: 0
+  isSpecialCard: 0
+  specialType: 0
   hasPreemptive: 1
   preemptiveTargetType: 1
   preemptiveDamage: 5
   targetBackRowOnly: 0
+  worldPrefabA: {fileID: 0}
+  worldPrefabB: {fileID: 0}
+  portraitSprite: {fileID: 0}
+  backgroundSprite: {fileID: 0}
+  abilityDescription: 
+  Definition: {fileID: 0}

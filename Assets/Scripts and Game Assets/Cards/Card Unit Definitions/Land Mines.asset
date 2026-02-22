@@ -17,6 +17,7 @@ MonoBehaviour:
   cost: 0
   hp: 0
   atk: 0
+  rarity: 0
   ability: 0
   countsAsVehicle: 0
   abilityParams:
@@ -32,4 +33,5 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: -4239088642893424808, guid: 4e87d5319694d4b958789863734a0407, type: 3}
-  abilityDescription: 
+  abilityDescription: Opponent cannot rearrange this round
+  Definition: {fileID: 0}

@@ -13,6 +13,16 @@ public class CombatReport
     // Expose read-only view: playback/UI can read, but cannot modify.
     public IReadOnlyList<CombatEvent> Events => _events;
 
+    // Firepower totals for visual explosion ordering
+    // Lower firepower player's units explode first per row
+    public int TotalFirepowerA { get; private set; }
+    public int TotalFirepowerB { get; private set; }
+
+    // Starting unit counts per type (for tracking when rows are wiped)
+    // Key: UnitType, Value: count
+    public Dictionary<UnitType, int> StartingCountsA { get; private set; } = new();
+    public Dictionary<UnitType, int> StartingCountsB { get; private set; } = new();
+
     /// <summary>
     /// Add an event to the report.
     /// We keep this method small so it stays safe and predictable.
@@ -21,5 +31,25 @@ public class CombatReport
     {
         if (e == null) return;
         _events.Add(e);
+    }
+
+    /// <summary>
+    /// Store firepower totals for visual playback ordering.
+    /// Called by CombatResolver after calculating attack totals.
+    /// </summary>
+    public void SetFirepower(int firepowerA, int firepowerB)
+    {
+        TotalFirepowerA = firepowerA;
+        TotalFirepowerB = firepowerB;
+    }
+
+    /// <summary>
+    /// Store starting unit counts per type for each player.
+    /// Called before combat damage begins so playback knows when rows are cleared.
+    /// </summary>
+    public void SetStartingCounts(Dictionary<UnitType, int> countsA, Dictionary<UnitType, int> countsB)
+    {
+        StartingCountsA = countsA ?? new Dictionary<UnitType, int>();
+        StartingCountsB = countsB ?? new Dictionary<UnitType, int>();
     }
 }

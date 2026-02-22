@@ -17,6 +17,7 @@ MonoBehaviour:
   cost: 0
   hp: 0
   atk: 0
+  rarity: 0
   ability: 0
   countsAsVehicle: 0
   abilityParams:
@@ -32,4 +33,6 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 3167252538121618298, guid: d7541f82372af4fc1bd4b993928f833a, type: 3}
   backgroundSprite: {fileID: 3167252538121618298, guid: d7541f82372af4fc1bd4b993928f833a, type: 3}
-  abilityDescription: 
+  abilityDescription: Reduce HP of enemy infantry by 50% this ROUND; NO KILL. Round
+    down no 1.5 health units
+  Definition: {fileID: 0}

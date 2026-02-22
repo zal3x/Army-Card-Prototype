@@ -17,6 +17,7 @@ MonoBehaviour:
   cost: 16
   hp: 14
   atk: 22
+  rarity: 0
   ability: 0
   countsAsVehicle: 0
   abilityParams:
@@ -31,3 +32,6 @@ MonoBehaviour:
   worldPrefabA: {fileID: 0}
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
+  backgroundSprite: {fileID: 0}
+  abilityDescription: 
+  Definition: {fileID: 0}

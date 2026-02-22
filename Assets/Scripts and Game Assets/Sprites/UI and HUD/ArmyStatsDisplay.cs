@@ -131,6 +131,15 @@ public Color hpDisadvantageColor = new Color(1f, 0.5f, 0.5f); // Light Red (dang
     /// </summary>
     public void RefreshFromPlayer(Player player, bool immediate = false)
     {
+        RefreshFromPlayer(player, null, immediate);
+    }
+
+    /// <summary>
+    /// Refreshes stats by reading directly from a Player's board.
+    /// Uses ability-aware ATK calculation when enemy context is provided.
+    /// </summary>
+    public void RefreshFromPlayer(Player player, Player enemy, bool immediate = false)
+    {
         int totalATK = 0;
         int totalHP = 0;
 
@@ -138,11 +147,31 @@ public Color hpDisadvantageColor = new Color(1f, 0.5f, 0.5f); // Light Red (dang
         {
             foreach (var rowKvp in player.Rows)
             {
-                foreach (var unit in rowKvp.Value.Units)
+                RowType rowType = rowKvp.Key;
+                var row = rowKvp.Value;
+
+                // Build count by name for this row (for 3-of-a-kind)
+                var aliveCountByName = new System.Collections.Generic.Dictionary<string, int>();
+                foreach (var u in row.Units)
+                {
+                    if (u != null && u.IsAlive)
+                    {
+                        if (!aliveCountByName.ContainsKey(u.Name))
+                            aliveCountByName[u.Name] = 0;
+                        aliveCountByName[u.Name]++;
+                    }
+                }
+
+                foreach (var unit in row.Units)
                 {
                     if (unit != null && unit.IsAlive)
                     {
-                        totalATK += unit.ATK;
+                        // Use ability-aware ATK calculation if enemy context is provided
+                        int effectiveATK = (enemy != null)
+                            ? AbilitySystem.GetEffectiveAttackForBuyPhase(unit, player, enemy, rowType, aliveCountByName)
+                            : unit.ATK;
+
+                        totalATK += effectiveATK;
                         totalHP += unit.HP;
                     }
                 }

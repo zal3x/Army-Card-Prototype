@@ -52,8 +52,11 @@ public class CombatVFXSpawner : MonoBehaviour
     [Range(1, 60)]
     public int explosionFPS = 12;
 
-    [Tooltip("Scale multiplier for the explosion.")]
+    [Tooltip("Scale multiplier for the explosion. (Only used if not using global settings)")]
     public float explosionScale = 1f;
+
+    [Tooltip("Use global settings from CombatVisualSettings (recommended)")]
+    public bool useGlobalSettings = true;
 
     [Header("Explosion Position Offset")]
     [Tooltip("Offset from unit position (useful if unit pivot is at feet).")]
@@ -143,7 +146,7 @@ public class CombatVFXSpawner : MonoBehaviour
     /// <summary>
     /// Spawns a death explosion at the specified world position.
     /// Destroys the unit visual immediately and triggers card flight to discard.
-    /// 
+    ///
     /// CALL THIS FROM: CombatPlayback when handling UnitDestroyed event.
     /// </summary>
     /// <param name="worldPosition">Where to spawn the explosion</param>
@@ -151,6 +154,25 @@ public class CombatVFXSpawner : MonoBehaviour
     /// <param name="triggerCardFlight">If true, also tells CardFlightManager about the death</param>
     public void SpawnDeathExplosion(Vector3 worldPosition, int unitId = -1, bool triggerCardFlight = true)
     {
+        // Trigger death slow-motion effect if enabled
+        var settings = CombatVisualSettings.Instance;
+        if (settings != null && settings.enableDeathSlowMotion)
+        {
+            StartCoroutine(DeathSlowMotionRoutine(settings.deathSlowMotionScale, settings.deathSlowMotionDuration));
+        }
+
+        // Trigger camera shake on death
+        if (CameraShake.Instance != null)
+        {
+            CameraShake.Instance.ShakeOnDeath();
+        }
+
+        // Play explosion sound
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlayExplosion();
+        }
+
         // IMMEDIATELY destroy the unit visual (both Player A and B)
         if (destroyUnitVisualOnExplosion && unitId >= 0)
         {
@@ -161,6 +183,13 @@ public class CombatVFXSpawner : MonoBehaviour
         Vector3 explosionPos = worldPosition + explosionOffset;
         explosionPos.z = explosionZ;
 
+        // Get effective settings
+        float effectiveScale = explosionScale;
+        if (useGlobalSettings && CombatVisualSettings.Instance != null)
+        {
+            effectiveScale = CombatVisualSettings.Instance.deathExplosionScale;
+        }
+
         // Spawn the explosion
         SpriteAnimationPlayer explosion = null;
 
@@ -168,6 +197,10 @@ public class CombatVFXSpawner : MonoBehaviour
         {
             // Use prefab
             explosion = SpriteAnimationPlayer.SpawnFromPrefab(explosionPrefab, explosionPos);
+            if (explosion != null)
+            {
+                explosion.SetBaseScale(effectiveScale);
+            }
         }
         else if (deathExplosionFrames != null && deathExplosionFrames.Length > 0)
         {
@@ -184,7 +217,7 @@ public class CombatVFXSpawner : MonoBehaviour
             // Apply additional settings
             if (explosion != null)
             {
-                explosion.SetBaseScale(explosionScale);
+                explosion.SetBaseScale(effectiveScale);
                 explosion.useScalePop = useScalePop;
                 explosion.fadeOutAtEnd = useFadeOut;
             }
@@ -340,6 +373,21 @@ public class CombatVFXSpawner : MonoBehaviour
         }
 
         fieldSpawner.DestroyUnitVisual(unitId);
+    }
+
+    /// <summary>
+    /// Applies slow-motion effect for unit death (dramatic effect).
+    /// </summary>
+    private System.Collections.IEnumerator DeathSlowMotionRoutine(float timeScale, float duration)
+    {
+        float originalTimeScale = Time.timeScale;
+        Time.timeScale = timeScale;
+
+        // Wait in real-time (unscaled)
+        yield return new WaitForSecondsRealtime(duration);
+
+        // Restore normal time
+        Time.timeScale = originalTimeScale;
     }
 }
 

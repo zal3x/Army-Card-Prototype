@@ -17,6 +17,7 @@ MonoBehaviour:
   cost: 0
   hp: 0
   atk: 0
+  rarity: 0
   ability: 0
   countsAsVehicle: 0
   abilityParams:
@@ -32,4 +33,5 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: 7327949687151864162, guid: 36abbbaaff9e24cfa82aeec788731f8c, type: 3}
-  abilityDescription: 
+  abilityDescription: Enemy vehicles lose all ability bonuses this round
+  Definition: {fileID: 0}

@@ -63,6 +63,10 @@ public class CommanderDisplay : MonoBehaviour
     [Tooltip("How fast health bar animates (seconds)")]
     public float healthBarAnimSpeed = 0.3f;
 
+    [Header("Unified Health System")]
+    [Tooltip("Reference to health bar container RectTransform for width animation")]
+    public RectTransform healthBarContainer;
+
     [Tooltip("Flash color when taking damage")]
     public Color damageFlashColor = new Color(1f, 0.3f, 0.3f, 0.5f);
 
@@ -183,6 +187,219 @@ public class CommanderDisplay : MonoBehaviour
     /// Gets max HP (for external queries).
     /// </summary>
     public int GetMaxHP() => maxHP;
+
+    // ========================================
+    // UNIFIED HEALTH SYSTEM METHODS
+    // ========================================
+
+    /// <summary>
+    /// Expands max HP when a unit is deployed.
+    /// Both currentHP and maxHP increase by the unit's HP.
+    /// Health bar physically grows wider.
+    /// </summary>
+    public void ExpandMaxHP(int additionalHP, bool animate = true)
+    {
+        int oldMax = maxHP;
+        int oldCurrent = currentHP;
+
+        maxHP += additionalHP;
+        currentHP += additionalHP;
+
+        // Calculate new fill amount (should stay at same percentage or increase)
+        targetFillAmount = maxHP > 0 ? (float)currentHP / maxHP : 1f;
+
+        if (animate)
+        {
+            AnimateExpansion(oldMax, maxHP, oldCurrent, currentHP);
+        }
+        else
+        {
+            UpdateHealthBar(immediate: true);
+            UpdateHealthText();
+            UpdateBarWidth(maxHP, immediate: true);
+        }
+    }
+
+    /// <summary>
+    /// Sets max HP directly (for end-of-combat shrink).
+    /// CurrentHP is clamped to not exceed new max.
+    /// </summary>
+    public void SetMaxHP(int newMaxHP, bool animate = true)
+    {
+        int oldMax = maxHP;
+        maxHP = Mathf.Max(1, newMaxHP);
+        currentHP = Mathf.Clamp(currentHP, 0, maxHP);
+
+        targetFillAmount = maxHP > 0 ? (float)currentHP / maxHP : 0f;
+
+        if (animate)
+        {
+            AnimateShrink(oldMax, maxHP);
+        }
+        else
+        {
+            UpdateHealthBar(immediate: true);
+            UpdateHealthText();
+            UpdateBarWidth(maxHP, immediate: true);
+        }
+    }
+
+    /// <summary>
+    /// Full state sync - sets both current and max HP.
+    /// Used after combat to sync display with actual player state.
+    /// </summary>
+    public void SetHealthState(int newCurrent, int newMax, bool animate = true)
+    {
+        int oldMax = maxHP;
+        int oldCurrent = currentHP;
+
+        maxHP = Mathf.Max(1, newMax);
+        currentHP = Mathf.Clamp(newCurrent, 0, maxHP);
+
+        targetFillAmount = maxHP > 0 ? (float)currentHP / maxHP : 0f;
+
+        if (animate)
+        {
+            // Determine if we're shrinking or expanding
+            if (newMax < oldMax)
+            {
+                AnimateShrink(oldMax, maxHP);
+            }
+            else if (newMax > oldMax)
+            {
+                AnimateExpansion(oldMax, maxHP, oldCurrent, currentHP);
+            }
+            else
+            {
+                // Same max, just update fill
+                UpdateHealthBar(immediate: false);
+                UpdateHealthText();
+            }
+
+            // Also animate HP change if it's damage
+            if (newCurrent < oldCurrent)
+            {
+                PlayDamageEffects();
+            }
+        }
+        else
+        {
+            UpdateHealthBar(immediate: true);
+            UpdateHealthText();
+            UpdateBarWidth(maxHP, immediate: true);
+        }
+    }
+
+    /// <summary>
+    /// Animates health bar expansion when units are deployed.
+    /// </summary>
+    private void AnimateExpansion(int oldMax, int newMax, int oldCurrent, int newCurrent)
+    {
+        var settings = CombatVisualSettings.Instance;
+        float duration = settings != null ? settings.commanderExpandAnimDuration : 0.4f;
+
+        // Animate bar width
+        UpdateBarWidth(newMax, immediate: false, customDuration: duration);
+
+        // Animate fill amount
+        LeanTween.cancel(healthBarFill.gameObject);
+        LeanTween.value(healthBarFill.gameObject, healthBarFill.fillAmount, targetFillAmount, duration)
+            .setEaseOutQuad()
+            .setOnUpdate((float val) => {
+                if (healthBarFill != null)
+                    healthBarFill.fillAmount = val;
+            });
+
+        // Update text
+        UpdateHealthText();
+
+        // Optional pulse effect
+        if (settings != null && settings.pulseOnExpand && healthBarContainer != null)
+        {
+            Vector3 originalScale = healthBarContainer.localScale;
+            float pulseScale = settings.expandPulseScale;
+
+            LeanTween.scale(healthBarContainer, originalScale * pulseScale, duration * 0.3f)
+                .setEaseOutQuad()
+                .setOnComplete(() => {
+                    LeanTween.scale(healthBarContainer, originalScale, duration * 0.3f)
+                        .setEaseInQuad();
+                });
+        }
+    }
+
+    /// <summary>
+    /// Animates health bar shrinking at end of combat.
+    /// </summary>
+    private void AnimateShrink(int oldMax, int newMax)
+    {
+        var settings = CombatVisualSettings.Instance;
+        float duration = settings != null ? settings.commanderShrinkAnimDuration : 0.3f;
+
+        // Animate bar width
+        UpdateBarWidth(newMax, immediate: false, customDuration: duration);
+
+        // Animate fill amount
+        LeanTween.cancel(healthBarFill.gameObject);
+        LeanTween.value(healthBarFill.gameObject, healthBarFill.fillAmount, targetFillAmount, duration)
+            .setEaseOutQuad()
+            .setOnUpdate((float val) => {
+                if (healthBarFill != null)
+                    healthBarFill.fillAmount = val;
+            });
+
+        // Update text and color
+        UpdateHealthText();
+
+        // Update color based on new HP percentage
+        float hpPercent = targetFillAmount;
+        Color newColor;
+        if (hpPercent > 0.7f)
+            newColor = healthyColor;
+        else if (hpPercent > 0.4f)
+            newColor = damagedColor;
+        else
+            newColor = criticalColor;
+        healthBarFill.color = newColor;
+    }
+
+    /// <summary>
+    /// Updates health bar container width based on current max HP.
+    /// </summary>
+    private void UpdateBarWidth(int forMaxHP, bool immediate, float customDuration = -1f)
+    {
+        if (healthBarContainer == null) return;
+
+        var settings = CombatVisualSettings.Instance;
+        if (settings == null || !settings.useUnifiedCommanderHealth) return;
+
+        // Calculate target width (we use 20 as base HP reference, adjust as needed)
+        float targetWidth = settings.GetCommanderBarWidth(forMaxHP, 20);
+
+        if (immediate)
+        {
+            Vector2 size = healthBarContainer.sizeDelta;
+            size.x = targetWidth;
+            healthBarContainer.sizeDelta = size;
+        }
+        else
+        {
+            float duration = customDuration > 0 ? customDuration : settings.commanderExpandAnimDuration;
+            float startWidth = healthBarContainer.sizeDelta.x;
+
+            LeanTween.cancel(healthBarContainer.gameObject);
+            LeanTween.value(healthBarContainer.gameObject, startWidth, targetWidth, duration)
+                .setEaseOutQuad()
+                .setOnUpdate((float val) => {
+                    if (healthBarContainer != null)
+                    {
+                        Vector2 size = healthBarContainer.sizeDelta;
+                        size.x = val;
+                        healthBarContainer.sizeDelta = size;
+                    }
+                });
+        }
+    }
 
     /// <summary>
     /// Returns world position for spawning damage numbers.

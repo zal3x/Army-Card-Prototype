@@ -65,7 +65,46 @@ public void ShowRevealOverlay(string title, List<UnitCard> cards)
     // Disable main hand carousel input while overlay is open
     SetHandCarouselInputEnabled(false);
 
-    revealOverlay?.Show(title, cards, cloneCards: true);
+    if (revealOverlay == null)
+    {
+        Debug.LogError("[BuyUI] revealOverlay is NULL! Assign CardRevealOverlay in Inspector on BuyPhaseUI_FixedHand.");
+        SetHandCarouselInputEnabled(true); // Re-enable since we can't show overlay
+        return;
+    }
+
+    Debug.Log($"[BuyUI] ShowRevealOverlay called: title='{title}', cards={cards?.Count ?? 0}");
+
+    revealOverlay.Show(title, cards, cloneCards: true, onDismiss: () =>
+    {
+        // Re-enable hand carousel when overlay is dismissed
+        SetHandCarouselInputEnabled(true);
+    });
+
+    // Fallback: if overlay's root didn't activate, try forcing it from here (we're on an active object)
+    StartCoroutine(EnsureOverlayActiveCoroutine());
+}
+
+private System.Collections.IEnumerator EnsureOverlayActiveCoroutine()
+{
+    yield return null; // Wait one frame
+
+    if (revealOverlay != null && !revealOverlay.gameObject.activeInHierarchy)
+    {
+        Debug.LogWarning("[BuyUI] Overlay still inactive after Show()! Forcing activation from BuyPhaseUI.");
+        revealOverlay.gameObject.SetActive(true);
+
+        // Also try to activate the overlay's transform hierarchy
+        Transform t = revealOverlay.transform;
+        while (t != null)
+        {
+            if (!t.gameObject.activeSelf)
+            {
+                Debug.Log($"[BuyUI] Activating: {t.name}");
+                t.gameObject.SetActive(true);
+            }
+            t = t.parent;
+        }
+    }
 }
 
 
@@ -183,6 +222,16 @@ public void SetHandCarouselInputEnabled(bool enabled)
 {
     if (cardCarousel != null)
         cardCarousel.SetInputEnabled(enabled);
+}
+
+/// <summary>
+/// Enables or disables the pass button interactivity.
+/// Call this to visually indicate when the player can pass.
+/// </summary>
+public void SetPassButtonInteractable(bool interactable)
+{
+    if (passButton != null)
+        passButton.interactable = interactable;
 }
 
 /// <summary>
@@ -324,16 +373,24 @@ public void RemovePurchasedCard(UnitCard card)
     /// </summary>
     private void OnCarouselCardSelected(UnitCard card)
     {
-        if (card == null) return;
+        Debug.Log($"[BuyUI] OnCarouselCardSelected called - card={(card?.Name ?? "NULL")}, currentGold={currentGold}, onCardSelected={(onCardSelected != null ? "SET" : "NULL")}");
+
+        if (card == null)
+        {
+            Debug.Log("[BuyUI] Card is null, returning");
+            return;
+        }
 
         // Check affordability before invoking callback
         if (card.Cost > currentGold)
         {
+            Debug.Log($"[BuyUI] Can't afford! Cost={card.Cost} > Gold={currentGold}");
             SetHandSummary($"Not enough gold! Need {card.Cost}, have {currentGold}");
             return;
         }
 
         // Invoke callback - let BattleTestRunner handle the purchase logic
+        Debug.Log($"[BuyUI] Invoking onCardSelected for {card.Name}");
         onCardSelected?.Invoke(card);
     }
 }

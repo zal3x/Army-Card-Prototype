@@ -256,8 +256,13 @@ case SpecialCardType.Radar:
         // Keep your event hook if you still want it
         OnRadarReveal?.Invoke(owner, snapshot);
 
-        // NEW: show overlay (visual reveal)
-runner?.ShowRevealOverlay("Radar: Enemy Hand", snapshot);
+        // Only show overlay for human player (Player A)
+        bool isHuman = runner != null && owner == runner.PlayerA;
+        Debug.Log($"[RADAR] owner={owner?.Name}, PlayerA={runner?.PlayerA?.Name}, isHuman={isHuman}");
+        if (isHuman)
+        {
+            runner.ShowRevealOverlay("Radar: Enemy Hand", snapshot);
+        }
 
         // Optional debug log
         Debug.Log($"[RADAR] {owner.Name} sees {enemy.Name} hand: " +
@@ -345,8 +350,13 @@ case SpecialCardType.Recon:
         // Keep event hook
         OnReconPeek?.Invoke(owner, snapshot);
 
-        // NEW: show overlay
-runner?.ShowRevealOverlay("Recon: Next 3 Draws", snapshot);
+        // Only show overlay for human player (Player A)
+        bool isHumanRecon = runner != null && owner == runner.PlayerA;
+        Debug.Log($"[RECON] owner={owner?.Name}, PlayerA={runner?.PlayerA?.Name}, isHuman={isHumanRecon}");
+        if (isHumanRecon)
+        {
+            runner.ShowRevealOverlay("Recon: Next 3 Draws", snapshot);
+        }
 
         // Optional debug log
         Debug.Log($"[RECON] {owner.Name} peeks next 3: " +

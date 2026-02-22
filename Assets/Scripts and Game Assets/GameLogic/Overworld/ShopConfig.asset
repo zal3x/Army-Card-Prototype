@@ -1,0 +1,76 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d998c09356c3475c9121dd06f569e22, type: 3}
+  m_Name: ShopConfig
+  m_EditorClassIdentifier: Assembly-CSharp::ShopInventoryConfig
+  commonDropRate: 60
+  uncommonDropRate: 20
+  rareDropRate: 10
+  epicDropRate: 7
+  legendaryDropRate: 3
+  fieldRecruiterSlots: 5
+  intelligenceOfficerSlots: 5
+  chiefOfStaffSlots: 3
+  unitCardPool:
+  - {fileID: 11400000, guid: 0c7520f0cc02a4d8e9d347bf2f7fd79c, type: 2}
+  - {fileID: 11400000, guid: 8673c1d3dba6e4bb6ba70332622d1752, type: 2}
+  - {fileID: 11400000, guid: 531cd28c2ccbd4f688ecd9c165af780c, type: 2}
+  - {fileID: 11400000, guid: 0eb78116dffef46329841cc9d4841a67, type: 2}
+  - {fileID: 11400000, guid: d28181f4cd97e477a8b1a17031c94dda, type: 2}
+  - {fileID: 11400000, guid: c930bbfd77b8b4065a117f31b54aa30b, type: 2}
+  - {fileID: 11400000, guid: 7539b5589a6e84cabb4f7957f2dc766e, type: 2}
+  - {fileID: 11400000, guid: 3359e22a61e3845f4bd49478773a60e1, type: 2}
+  specialCardPool:
+  - {fileID: 11400000, guid: b5e63f3d089ae405e937cc26f7ca2b37, type: 2}
+  - {fileID: 11400000, guid: a3952bc78b60e4947918aea849214100, type: 2}
+  - {fileID: 11400000, guid: c483bc101c9b94f4a9d5c64465f46a92, type: 2}
+  - {fileID: 11400000, guid: 7709969b801d448eda8ac282c3b8375a, type: 2}
+  - {fileID: 11400000, guid: 05b410ae2f4954b1cb9284c7bd53971f, type: 2}
+  - {fileID: 11400000, guid: a0411c480f26b43c2ba2436caee73aa6, type: 2}
+  - {fileID: 11400000, guid: f1c294547ce2c48c29d05f613e8d5c17, type: 2}
+  - {fileID: 11400000, guid: c79cde2e676594e21a36c143fae029a2, type: 2}
+  - {fileID: 11400000, guid: 83e208626d97641ff8daa437e6fc6af0, type: 2}
+  - {fileID: 11400000, guid: 01f2f12a70c594251879b80e47dd60e8, type: 2}
+  - {fileID: 11400000, guid: 5fb4782b6394143e78448cc4ff8a3e35, type: 2}
+  - {fileID: 11400000, guid: 12f021aa3995c47479bdf7d2e4c13d6c, type: 2}
+  - {fileID: 11400000, guid: 73c3f048f24584e03b146adeac902549, type: 2}
+  - {fileID: 11400000, guid: 6d104fb1b686b4ad7b9cf9ee12d192ff, type: 2}
+  - {fileID: 11400000, guid: bb0297b9123ed467e81ec376364c22a3, type: 2}
+  doctrinePool:
+  - {fileID: 11400000, guid: 04de37e369d84407b857887a9b11f362, type: 2}
+  - {fileID: 11400000, guid: ee0cd9b45dc504034b5b8cfcccc6d05e, type: 2}
+  - {fileID: 11400000, guid: 51957782e678747b99bf52a7d546e0b2, type: 2}
+  - {fileID: 11400000, guid: f7558476405c74debbd066e6bd8bac4f, type: 2}
+  - {fileID: 11400000, guid: a1cba7d815eda44e3852f05bf16016f2, type: 2}
+  - {fileID: 11400000, guid: b1736948cda7e43139f5c4aae0c2d987, type: 2}
+  - {fileID: 11400000, guid: 34eada3bfd1464137a2980dfb7696604, type: 2}
+  - {fileID: 11400000, guid: ca57666fff1f640699a551fd5c0224f2, type: 2}
+  - {fileID: 11400000, guid: e17f543a1464f45cfbe1454b55032d27, type: 2}
+  - {fileID: 11400000, guid: 6d60d62de977d4d709018501342df31c, type: 2}
+  - {fileID: 11400000, guid: da41cd29b682c463ca6863719e4ac14d, type: 2}
+  - {fileID: 11400000, guid: 87a6d10d71223436c83f13d228e06f44, type: 2}
+  - {fileID: 11400000, guid: b47290fed62f24df4a49422b26c1d06e, type: 2}
+  - {fileID: 11400000, guid: 2a63796323b3d489888dda869b7e323d, type: 2}
+  - {fileID: 11400000, guid: 822b0fda7297a46f4b525839c9a6b612, type: 2}
+  perkPool:
+  - {fileID: 11400000, guid: e04d9a968bf9a45c4b43ceeb42008ea3, type: 2}
+  - {fileID: 11400000, guid: 3488e62b4e8c149c1a3f2342863064bd, type: 2}
+  - {fileID: 11400000, guid: d6cf66e6d372044d894aecd7c8aaccfe, type: 2}
+  - {fileID: 11400000, guid: 467d438fd5364488fa70b7297899bec3, type: 2}
+  - {fileID: 11400000, guid: 09be16a5943fd4ad28f246c49457dea3, type: 2}
+  - {fileID: 11400000, guid: b8105b6281b324ab28812c66e745b41e, type: 2}
+  - {fileID: 11400000, guid: fd9e72bfb5b224dda8cdafc8275d3506, type: 2}
+  - {fileID: 11400000, guid: 11891b249bc7a45d9b766a4582ada267, type: 2}
+  baseUnitCardCost: 50
+  baseSpecialCardCost: 75
+  baseDoctrineCost: 100
+  rarityPriceMultiplier: 1.5

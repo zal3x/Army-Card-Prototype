@@ -17,6 +17,7 @@ MonoBehaviour:
   cost: 0
   hp: 0
   atk: 0
+  rarity: 0
   ability: 0
   countsAsVehicle: 0
   abilityParams:
@@ -32,4 +33,5 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: -1462809406280315373, guid: ab0980e85d45646d0ac7fb3c36f13142, type: 3}
-  abilityDescription: 
+  abilityDescription: Reveal Opponents hand this round
+  Definition: {fileID: 0}

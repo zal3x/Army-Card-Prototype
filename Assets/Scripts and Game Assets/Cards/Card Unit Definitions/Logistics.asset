@@ -17,6 +17,7 @@ MonoBehaviour:
   cost: 0
   hp: 0
   atk: 0
+  rarity: 0
   ability: 0
   countsAsVehicle: 0
   abilityParams:
@@ -32,4 +33,5 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: -5926239393764136202, guid: 6523267aa21cf4ebba2ed2289e883c6e, type: 3}
-  abilityDescription: 
+  abilityDescription: Pull 1/2 cards from deck and adds to your hand
+  Definition: {fileID: 0}

@@ -31,6 +31,13 @@ public class BattleTestRunner : MonoBehaviour, AbilitySystem.IOnPlayApi
 //Kamikazee section
     public static BattleTestRunner Instance { get; private set; }
 
+    // ========================================
+    // OVERWORLD INTEGRATION
+    // ========================================
+    /// <summary>
+    /// Event fired when battle ends. Parameters: (isPlayerAWinner, playerAHP, playerAMaxHP)
+    /// </summary>
+    public event System.Action<bool, int, int> OnBattleEnded;
 
 private void Awake()
 {
@@ -161,6 +168,21 @@ private bool kamikazeDone;
     #endregion
 
 
+    #region AI Timing Settings
+    [Header("AI Timing (Pacing)")]
+    [Tooltip("Minimum delay before AI 'thinks' and buys (seconds).")]
+    public float aiThinkDelayMin = .5f;
+
+
+    [Tooltip("Maximum delay before AI 'thinks' and buys (seconds).")]
+    public float aiThinkDelayMax = 1.0f;
+
+
+    [Tooltip("Delay after AI buys before next action (seconds). Allows time to appreciate animations.")]
+    public float aiAfterBuyDelay = 0.05f; // Reduced from 1.5f for snappier gameplay
+    #endregion
+
+
     #region TargetMark Randomness
     [Header("TargetMark Randomness")]
     [Tooltip("If ON: TargetMark uses UnityEngine.Random (true random). If OFF: uses buyRng (seeded/repeatable).")]
@@ -227,7 +249,13 @@ public Player PlayerB => playerB;
 
 public void ShowRevealOverlay(string title, List<UnitCard> cards)
 {
-    buyUI?.ShowRevealOverlay(title, cards);
+    Debug.Log($"[BattleTestRunner.ShowRevealOverlay] title='{title}', cards={cards?.Count ?? 0}, buyUI={(buyUI != null ? "exists" : "NULL")}");
+    if (buyUI == null)
+    {
+        Debug.LogError("[BattleTestRunner] buyUI is NULL - cannot show reveal overlay!");
+        return;
+    }
+    buyUI.ShowRevealOverlay(title, cards);
 }
 
 
@@ -503,13 +531,35 @@ private void Start()
     BuildCardDefinitionLookup();
 
 // Apply commanders from ScriptableObjects (if provided)
+Debug.Log($"[BATTLE START] Setting commanders - CommanderBonus.Instance={(CommanderBonus.Instance != null ? "EXISTS" : "NULL")}, " +
+          $"playerACommander={(playerACommander != null ? playerACommander.displayName : "NULL")}, " +
+          $"playerBCommander={(playerBCommander != null ? playerBCommander.displayName : "NULL")}");
+
 if (CommanderBonus.Instance != null)
 {
     if (playerACommander != null)
+    {
+        Debug.Log($"[BATTLE START] Setting Player A commander to {playerACommander.commanderId} ({playerACommander.displayName})");
         CommanderBonus.Instance.SetCommanderForPlayer(playerA, playerACommander.commanderId);
+    }
+    else
+    {
+        Debug.LogWarning("[BATTLE START] playerACommander is NULL - no commander set for Player A!");
+    }
 
     if (playerBCommander != null)
+    {
+        Debug.Log($"[BATTLE START] Setting Player B commander to {playerBCommander.commanderId} ({playerBCommander.displayName})");
         CommanderBonus.Instance.SetCommanderForPlayer(playerB, playerBCommander.commanderId);
+    }
+    else
+    {
+        Debug.LogWarning("[BATTLE START] playerBCommander is NULL - no commander set for Player B!");
+    }
+}
+else
+{
+    Debug.LogError("[BATTLE START] CommanderBonus.Instance is NULL! Make sure there's a GameObject with CommanderBonus component in the scene!");
 }
 
 // Optional starting stat overrides (HP/Gold)
@@ -523,18 +573,7 @@ ApplyCommanderStartingOverrides(playerB, playerBCommander);
 
     DrawInitialHands();
 
-
-    if (CommanderBonus.Instance != null)
-    CommanderBonus.Instance.EnterBattleContext();
-
-
-
-
-    // Start battle ONCE
-    battleRoutine = StartCoroutine(RunBattle());
-
-
-    // Auto-find references if not assigned in Inspector
+    // Auto-find references if not assigned in Inspector (BEFORE Infantry Surge needs them)
     if (combatVFXSpawner == null)
     {
         combatVFXSpawner = FindObjectOfType<CombatVFXSpawner>();
@@ -544,14 +583,107 @@ ApplyCommanderStartingOverrides(playerB, playerBCommander);
         }
     }
 
-
     if (fieldSpawner == null)
     {
         fieldSpawner = FindObjectOfType<FieldSpawner>();
     }
+
+    // Apply Infantry Surge doctrine AFTER BuildCardDefinitionLookup and fieldSpawner are ready
+    ApplyInfantrySurge(playerA);
+
+    if (CommanderBonus.Instance != null)
+    CommanderBonus.Instance.EnterBattleContext();
+
+    // Start battle ONCE
+    battleRoutine = StartCoroutine(RunBattle());
 }
 
+/// <summary>
+/// Restarts the battle with new/updated decks.
+/// Called by GameStateManager when starting a new battle from the world map.
+/// </summary>
+public void RestartBattle()
+{
+    Debug.Log("[BattleTestRunner] RestartBattle called - resetting everything...");
 
+    // Stop any running battle
+    if (battleRoutine != null)
+    {
+        StopCoroutine(battleRoutine);
+        battleRoutine = null;
+    }
+
+    // Clear all unit visuals from the field
+    if (fieldSpawner != null)
+    {
+        fieldSpawner.ClearAllVisuals();
+    }
+
+    // Reset player data
+    InitializePlayers();
+    BuildCardDefinitionLookup();
+
+    // Apply commanders from ScriptableObjects (if provided)
+    if (CommanderBonus.Instance != null)
+    {
+        if (playerACommander != null)
+            CommanderBonus.Instance.SetCommanderForPlayer(playerA, playerACommander.commanderId);
+
+        if (playerBCommander != null)
+            CommanderBonus.Instance.SetCommanderForPlayer(playerB, playerBCommander.commanderId);
+    }
+
+    // Optional starting stat overrides (HP/Gold)
+    ApplyCommanderStartingOverrides(playerA, playerACommander);
+    ApplyCommanderStartingOverrides(playerB, playerBCommander);
+
+    // Reload decks
+    LoadDecks();
+
+    // Draw new hands
+    DrawInitialHands();
+
+    // Apply Infantry Surge doctrine
+    ApplyInfantrySurge(playerA);
+
+    if (CommanderBonus.Instance != null)
+        CommanderBonus.Instance.EnterBattleContext();
+
+    // Reset HUD - use actual player HP (perks already applied in InitializePlayers)
+    if (battleHUD != null)
+    {
+        // Don't re-initialize with base HP - InitializePlayers already did this correctly
+        // Just do a full refresh to sync the display
+        battleHUD.FullRefresh(playerA, playerB, true);
+    }
+
+    // Reset buy UI
+    if (buyUI != null)
+    {
+        buyUI.RefreshCarousel();
+    }
+
+    // Start new battle
+    battleRoutine = StartCoroutine(RunBattle());
+
+    Debug.Log("[BattleTestRunner] New battle started!");
+}
+
+/// <summary>
+/// Sets the enemy commander for the next battle.
+/// Called by GameStateManager before RestartBattle.
+/// </summary>
+public void SetEnemyCommander(CommanderDefinition commander)
+{
+    playerBCommander = commander;
+    Debug.Log($"[BattleTestRunner] Enemy commander set to: {commander?.displayName ?? "null"}");
+
+    // Update HUD with enemy commander portrait
+    if (battleHUD != null)
+    {
+        battleHUD.SetEnemyCommander(commander);
+    }
+}
 
 
 
@@ -598,13 +730,31 @@ ApplyCommanderStartingOverrides(playerB, playerBCommander);
     rowLayoutByPlayer[playerB] = new RowLayout { infantryRow = RowType.Front, vehicleRow = RowType.Middle, airRow = RowType.Back };
 
 
-    playerA.CommanderHP = commanderStartHP;
-    playerB.CommanderHP = commanderStartHP;
+    // Initialize unified health system (CommanderBaseHP, CommanderHP, CommanderMaxHP)
+    // Include perk HP bonus for human player
+    int perkHPBonus = PerkSystem.GetBonusCommanderHP?.Invoke(playerA) ?? 0;
+    int playerAStartHP = commanderStartHP + perkHPBonus;
+    int playerBStartHP = commanderStartHP; // AI doesn't have perks
 
+    Debug.Log($"[InitializePlayers] Base HP: {commanderStartHP}, Perk Bonus: {perkHPBonus}, Player A Total: {playerAStartHP}");
 
+    playerA.InitializeUnifiedHealth(playerAStartHP);
+    playerB.InitializeUnifiedHealth(playerBStartHP);
+
+    // Apply other perk battle start effects (wall defense, etc.) but NOT HP bonus (already applied above)
+    PerkSystem.Instance?.ApplyNonHPBattleStartBonuses(playerA);
+
+    // Reset doctrine tracking for new battle
+    DoctrineSystem.Instance?.OnBattleStart();
+
+    // NOTE: Infantry Surge is applied later in Start() after BuildCardDefinitionLookup
+    // so that defByName is populated for finding infantry card definitions
+
+    // Initialize HUD with ACTUAL player HP values (after perk bonuses)
     if (battleHUD != null)
     {
-        battleHUD.Initialize(commanderStartHP);
+        battleHUD.Initialize(playerAStartHP);  // Use actual HP, not base
+        battleHUD.InitializeUnifiedHealth(playerA, playerB);
         battleHUD.FullRefresh(playerA, playerB, immediate: true);
     }
     else
@@ -613,7 +763,162 @@ ApplyCommanderStartingOverrides(playerB, playerBCommander);
     }
 }
 
+    /// <summary>
+    /// Spawns infantry units at battle start if Infantry Surge doctrine is equipped.
+    /// </summary>
+    private void ApplyInfantrySurge(Player player)
+    {
+        if (DoctrineSystem.Instance == null) return;
 
+        int surgeCount = DoctrineSystem.Instance.GetInfantrySurgeCount(player);
+        if (surgeCount <= 0) return;
+
+        // Find an infantry card definition to use as a template
+        UnitCardDefinition infantryDef = FindInfantryCardDefinition();
+        if (infantryDef == null)
+        {
+            Debug.LogWarning("[DOCTRINE] Infantry Surge: No infantry card definition found!");
+            return;
+        }
+
+        RowType targetRow = GetPlacementRow(player, UnitType.Infantry);
+        int spawned = 0;
+
+        for (int i = 0; i < surgeCount; i++)
+        {
+            // Check row capacity
+            if (player.Rows[targetRow].Units.Count >= maxUnitsPerRow)
+            {
+                Debug.Log($"[DOCTRINE] Infantry Surge: Row {targetRow} is full, cannot spawn more infantry");
+                break;
+            }
+
+            // Create a basic infantry unit using the definition
+            UnitCard surgeCard = infantryDef.ToRuntimeCard();
+            surgeCard.Owner = player;
+            Unit unit = surgeCard.CreateUnitInstance();
+            ApplyGlobalMultipliers(unit);
+
+            // Place in row
+            player.Rows[targetRow].Units.Add(unit);
+            specialCards?.OnUnitAddedToBoard(player, unit);
+
+            // UNIFIED HEALTH SYSTEM: Expand commander health pool
+            player.OnUnitDeployed(unit);
+
+            // Spawn visual
+            SpawnWorldVisualForBoughtUnit(player, unit, surgeCard);
+
+            spawned++;
+            Debug.Log($"[DOCTRINE] Infantry Surge: Spawned {unit.Name} in {targetRow} (unit {spawned}/{surgeCount})");
+        }
+
+        if (spawned > 0)
+        {
+            Debug.Log($"[DOCTRINE] Infantry Surge complete: Spawned {spawned} infantry units for {player.Name}");
+
+            // Refresh HUD to show the newly spawned units
+            if (battleHUD != null)
+            {
+                battleHUD.RefreshArmyStats(playerA, playerB);
+                battleHUD.FullRefresh(playerA, playerB, immediate: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Finds an infantry card definition to use for Infantry Surge.
+    /// Prefers cards named "Infantry" or with UnitType.Infantry.
+    /// </summary>
+    private UnitCardDefinition FindInfantryCardDefinition()
+    {
+        // First try to find one named "Infantry"
+        if (defByName != null && defByName.TryGetValue("Infantry", out UnitCardDefinition namedDef))
+        {
+            return namedDef;
+        }
+
+        // Otherwise find any infantry type card
+        if (cardDefinitions != null)
+        {
+            foreach (var def in cardDefinitions)
+            {
+                if (def != null && def.type == UnitType.Infantry)
+                {
+                    return def;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// REINFORCEMENTS DOCTRINE: Spawns an infantry unit when the player's army is completely defeated.
+    /// Only triggers once per battle.
+    /// </summary>
+    private void CheckAndApplyReinforcements(Player player, PlayerSide side)
+    {
+        if (DoctrineSystem.Instance == null) return;
+
+        // Check if player has ANY units left
+        bool hasUnits = false;
+        foreach (var row in player.Rows.Values)
+        {
+            foreach (var unit in row.Units)
+            {
+                if (unit != null && unit.IsAlive)
+                {
+                    hasUnits = true;
+                    break;
+                }
+            }
+            if (hasUnits) break;
+        }
+
+        // Only trigger if army is completely defeated
+        if (hasUnits) return;
+
+        // Check if Reinforcements doctrine should activate
+        if (!DoctrineSystem.Instance.ShouldSpawnReinforcement(player)) return;
+
+        Debug.Log($"[REINFORCEMENTS] {player.Name}'s army was defeated! Spawning emergency infantry.");
+
+        // Find an infantry card definition
+        UnitCardDefinition infantryDef = FindInfantryCardDefinition();
+        if (infantryDef == null)
+        {
+            Debug.LogWarning("[REINFORCEMENTS] No infantry card definition found!");
+            return;
+        }
+
+        RowType targetRow = GetPlacementRow(player, UnitType.Infantry);
+
+        // Create infantry unit
+        UnitCard reinforcementCard = infantryDef.ToRuntimeCard();
+        reinforcementCard.Owner = player;
+        Unit reinforcementUnit = reinforcementCard.CreateUnitInstance();
+        ApplyGlobalMultipliers(reinforcementUnit);
+
+        // Place in row
+        player.Rows[targetRow].Units.Add(reinforcementUnit);
+        specialCards?.OnUnitAddedToBoard(player, reinforcementUnit);
+
+        // UNIFIED HEALTH SYSTEM: Expand commander health pool
+        player.OnUnitDeployed(reinforcementUnit);
+
+        // Spawn visual with field spawner
+        SpawnWorldVisualForBoughtUnit(player, reinforcementUnit, reinforcementCard);
+
+        Debug.Log($"[REINFORCEMENTS] Spawned {reinforcementUnit.Name} in {targetRow} for {player.Name}");
+
+        // Refresh HUD to show the newly spawned unit
+        if (battleHUD != null)
+        {
+            battleHUD.RefreshArmyStats(playerA, playerB);
+            battleHUD.FullRefresh(playerA, playerB, immediate: true);
+        }
+    }
 
 
 
@@ -627,9 +932,19 @@ ApplyCommanderStartingOverrides(playerB, playerBCommander);
     /// </summary>
     private void LoadDecks()
 {
-    // Determine which deck definitions to use (commander deck if present, otherwise fallback)
-    DeckListDefinition deckA = (playerACommander != null && playerACommander.deck != null) ? playerACommander.deck : playerADeck;
+    // Player A (human): Always use playerADeck because GameStateManager sets it to
+    // the player's saved progress deck. Only fallback to commander deck for initial battles.
+    // Player B (AI enemy): Use commander deck if available, otherwise fallback to playerBDeck.
+    DeckListDefinition deckA = playerADeck;
     DeckListDefinition deckB = (playerBCommander != null && playerBCommander.deck != null) ? playerBCommander.deck : playerBDeck;
+
+    // Only fallback to commander deck for Player A if no deck was set externally
+    // (this happens in standalone testing without GameStateManager)
+    if (deckA == null && playerACommander != null && playerACommander.deck != null)
+    {
+        deckA = playerACommander.deck;
+        Debug.Log("[BATTLE] Using commander deck for Player A (no progress deck available)");
+    }
 
     if (deckA == null || deckB == null)
     {
@@ -637,15 +952,28 @@ ApplyCommanderStartingOverrides(playerB, playerBCommander);
         return;
     }
 
+    Debug.Log($"[BATTLE] LoadDecks: Player A using deck with {deckA.entries?.Count ?? 0} entries, Player B using deck with {deckB.entries?.Count ?? 0} entries");
+
     // Build runtime decks WITH OWNER CONTEXT (needed for commander-aware UI/effects)
     var aCards = deckA.BuildRuntimeDeck(playerA);
     var bCards = deckB.BuildRuntimeDeck(playerB);
 
     // Apply permanent commander changes BEFORE loading into SimpleDeck
+    Debug.Log($"[BATTLE] LoadDecks: About to apply commander bonuses. Instance={(CommanderBonus.Instance != null ? "EXISTS" : "NULL")}, " +
+              $"playerA hash={playerA?.GetHashCode()}, playerB hash={playerB?.GetHashCode()}, " +
+              $"aCards count={aCards?.Count}, bCards count={bCards?.Count}");
+
     if (CommanderBonus.Instance != null)
     {
+        Debug.Log($"[BATTLE] Applying permanent bonuses to Player A ({playerA?.Name}) cards...");
         CommanderBonus.Instance.ApplyPermanentBonusesToCards(playerA, aCards);
+        Debug.Log($"[BATTLE] Applying permanent bonuses to Player B ({playerB?.Name}) cards...");
         CommanderBonus.Instance.ApplyPermanentBonusesToCards(playerB, bCards);
+        Debug.Log("[BATTLE] Commander bonuses applied successfully.");
+    }
+    else
+    {
+        Debug.LogError("[BATTLE] LoadDecks: CommanderBonus.Instance is NULL! Commander bonuses will NOT be applied!");
     }
 
     playerA.Deck.SetStartingDeck(aCards);
@@ -714,11 +1042,24 @@ private bool TryBuyCard(Player player, UnitCard card, out int placedUnitId)
 }
     /// <summary>
     /// Draws the starting hand for both players.
+    /// Includes Strategic Reserves doctrine bonus for extra draw.
     /// </summary>
     private void DrawInitialHands()
     {
-        DrawCards(playerA, startingHandSize);
-        DrawCards(playerB, startingHandSize);
+        // Base starting hand + Strategic Reserves doctrine bonus
+        int extraDrawA = DoctrineSystem.GetExtraDrawCount?.Invoke(playerA) ?? 0;
+        int extraDrawB = 0; // AI doesn't have doctrines
+
+        int totalDrawA = startingHandSize + extraDrawA;
+        int totalDrawB = startingHandSize + extraDrawB;
+
+        if (extraDrawA > 0)
+        {
+            Debug.Log($"[STRATEGIC RESERVES] {playerA.Name} draws {extraDrawA} extra cards at battle start");
+        }
+
+        DrawCards(playerA, totalDrawA);
+        DrawCards(playerB, totalDrawB);
     }
 
 
@@ -876,6 +1217,9 @@ if (battleHUD != null)
             ResetLayoutIfBoardEmpty(playerA, PlayerSide.A);
 ResetLayoutIfBoardEmpty(playerB, PlayerSide.B);
 
+            // REINFORCEMENTS: Check if army was defeated and should spawn emergency infantry
+            CheckAndApplyReinforcements(playerA, PlayerSide.A);
+            CheckAndApplyReinforcements(playerB, PlayerSide.B);
 
             Debug.Log($"[BATTLE] Round {round} complete. AHP={playerA.CommanderHP} BHP={playerB.CommanderHP}");
 
@@ -903,12 +1247,45 @@ ResetLayoutIfBoardEmpty(playerB, PlayerSide.B);
 
 
         Debug.Log($"FINAL RESULT: {playerA.Name} HP={playerA.CommanderHP} vs {playerB.Name} HP={playerB.CommanderHP}");
+
+        // Fire battle ended event for overworld integration
+        bool playerAWon = playerA.CommanderHP > playerB.CommanderHP;
+        OnBattleEnded?.Invoke(playerAWon, playerA.CommanderHP, playerA.CommanderMaxHP);
+
+        // Notify GameStateManager if available
+        if (GameStateManager.Instance != null)
+        {
+            var result = playerAWon ? BattleResult.Victory : BattleResult.Defeat;
+            GameStateManager.Instance.OnBattleComplete(result, playerA.CommanderHP, playerA.CommanderMaxHP);
+        }
     }
 
 
     // ========================================
     // PHASE IMPLEMENTATIONS
     // ========================================
+
+
+    #region Cost Calculation Helpers
+    /// <summary>
+    /// Calculates the effective cost of a card after applying doctrine cost reductions.
+    /// Motorhead: -1 gold for vehicles
+    /// Birdwatcher: -1 gold for aircraft
+    /// </summary>
+    private int GetEffectiveCost(Player player, UnitCard card)
+    {
+        int cost = card.Cost;
+
+        // Apply doctrine cost reductions (only for human player)
+        if (DoctrineSystem.GetTypeCostReduction != null)
+        {
+            int reduction = DoctrineSystem.GetTypeCostReduction(player, card.Type);
+            cost = Mathf.Max(0, cost - reduction);
+        }
+
+        return cost;
+    }
+    #endregion
 
 
     #region Gold Phase
@@ -921,9 +1298,19 @@ ResetLayoutIfBoardEmpty(playerB, PlayerSide.B);
     {
         int goldGain = (round == 1) ? startingGoldRound1 : goldPerRound;
 
+        // Add doctrine bonuses (Military Industrial Complex: +gold at battle start)
+        int doctrineGoldA = (round == 1) ? (DoctrineSystem.GetStartingGoldBonus?.Invoke(playerA) ?? 0) : 0;
+        int doctrineGoldB = 0; // AI doesn't have doctrines
 
-        playerA.Gold += goldGain;
-        playerB.Gold += goldGain;
+        // Add perk bonuses (Purse: +gold per round)
+        int perkGoldA = PerkSystem.GetBonusGoldPerRound?.Invoke(playerA) ?? 0;
+        int perkGoldB = 0; // AI doesn't have perks
+
+        int totalGainA = goldGain + doctrineGoldA + perkGoldA;
+        int totalGainB = goldGain + doctrineGoldB + perkGoldB;
+
+        playerA.Gold += totalGainA;
+        playerB.Gold += totalGainB;
 
 
         roundReport.Add(new RoundEvent
@@ -931,8 +1318,8 @@ ResetLayoutIfBoardEmpty(playerB, PlayerSide.B);
             Type = RoundEventType.GoldGained,
             RoundNumber = round,
             Player = playerA,
-            Amount = goldGain,
-            Note = $"{playerA.Name} gains {goldGain} gold (now {playerA.Gold})"
+            Amount = totalGainA,
+            Note = $"{playerA.Name} gains {totalGainA} gold (now {playerA.Gold})"
         });
 
 
@@ -941,13 +1328,13 @@ ResetLayoutIfBoardEmpty(playerB, PlayerSide.B);
             Type = RoundEventType.GoldGained,
             RoundNumber = round,
             Player = playerB,
-            Amount = goldGain,
-            Note = $"{playerB.Name} gains {goldGain} gold (now {playerB.Gold})"
+            Amount = totalGainB,
+            Note = $"{playerB.Name} gains {totalGainB} gold (now {playerB.Gold})"
         });
 
 
-        Debug.Log($"{playerA.Name} gains {goldGain} gold (now {playerA.Gold})");
-        Debug.Log($"{playerB.Name} gains {goldGain} gold (now {playerB.Gold})");
+        Debug.Log($"{playerA.Name} gains {totalGainA} gold (now {playerA.Gold})");
+        Debug.Log($"{playerB.Name} gains {totalGainB} gold (now {playerB.Gold})");
 
 
        // At the end of GoldPhase, after the Debug.Log lines, add:
@@ -1043,11 +1430,14 @@ yield break;
     /// </summary>
     private IEnumerator BuyPhaseAlternating_UI(Player a, Player b, int round)
 {
-    bool aPassed = false;
-    bool bPassed = false;
     bool waitingForInput = false;
     bool processingPurchase = false;
     UnitCard selectedCard = null;
+    bool playerAPassed = false;  // True if Player A clicked Pass this turn
+
+    // Track consecutive passes - buy phase ends when both pass without buying
+    bool lastActionWasPassA = false;
+    bool lastActionWasPassB = false;
 
 
     
@@ -1064,48 +1454,109 @@ yield break;
     buyUI.Begin(
         round,
         a,
-        cardSelected: (card) => 
-        { 
-            if (!waitingForInput || processingPurchase) return;
+        cardSelected: (card) =>
+        {
+            // DEBUG: Log click attempts to diagnose timing issues
+            Debug.Log($"[BUY CALLBACK] Card clicked: {card?.Name}, waitingForInput={waitingForInput}, processingPurchase={processingPurchase}");
+
+            if (!waitingForInput || processingPurchase)
+            {
+                Debug.Log($"[BUY CALLBACK] Click REJECTED - not ready for input");
+                return;
+            }
             selectedCard = card;
+            playerAPassed = false;
             waitingForInput = false;
             processingPurchase = true;
+            Debug.Log($"[BUY CALLBACK] Click ACCEPTED - processing {card?.Name}");
         },
-        passClicked: () => 
-        { 
+        passClicked: () =>
+        {
             if (!waitingForInput || processingPurchase) return;
-            aPassed = true;
+            playerAPassed = true;
             waitingForInput = false;
             processingPurchase = true;
+            Debug.Log("[BUY CALLBACK] Pass ACCEPTED");
         }
     );
 
 
-while (!aPassed || !bPassed)  // CORRECT - exits when both pass
+// Main buy loop - continues until both players pass consecutively
+    while (true)
     {
-        // === PLAYER A (HUMAN) ===
-        waitingForInput = true;
-        processingPurchase = false;
-        selectedCard = null;
-        
-        float timeout = 0f;
-        while (waitingForInput && timeout < 300f)
+        // === PLAYER A (HUMAN) TURN ===
+
+        // If A already passed and B hasn't passed yet, skip A's turn (B gets continuous turns)
+        if (lastActionWasPassA && !lastActionWasPassB)
         {
-            timeout += Time.deltaTime;
-            yield return null;
+            Debug.Log("[BUY] Player A already passed, skipping to Player B...");
+            // Don't prompt A, go straight to B's turn
+        }
+        else
+        {
+            // Check if Player A can afford anything
+            bool aCanAfford = CanAffordAnyCard(a);
+
+            if (!aCanAfford)
+            {
+                // Player A is forced to pass - can't afford anything
+                buyUI.SetPassButtonInteractable(false);
+                buyUI.SetHandSummary("No affordable cards - passing...");
+                lastActionWasPassA = true;
+                Debug.Log("[BUY] Player A forced to pass (can't afford anything)");
+                yield return new WaitForSeconds(0.3f);
+            }
+            else
+            {
+                // Player A can buy or voluntarily pass
+                waitingForInput = true;
+                processingPurchase = false;
+                selectedCard = null;
+                playerAPassed = false;
+
+                buyUI.SetHandSummary("Your turn - buy a card or pass");
+                buyUI.SetPassButtonInteractable(true);
+
+                float timeout = 0f;
+                while (waitingForInput && timeout < 300f)
+                {
+                    timeout += Time.deltaTime;
+                    yield return null;
+                }
+
+                if (timeout >= 300f)
+                {
+                    Debug.LogError("[BUY] Timeout!");
+                    break;
+                }
+
+                if (playerAPassed)
+                {
+                    // Player A voluntarily passed
+                    lastActionWasPassA = true;
+                    buyUI.SetHandSummary("Passed - waiting for enemy...");
+                    Debug.Log("[BUY] Player A voluntarily passed");
+                }
+                else if (selectedCard != null)
+                {
+                    // Player A bought something
+                    lastActionWasPassA = false;
+                    // Only reset B's pass if B hasn't passed yet (so they get a turn)
+                    // If B already passed, A continues buying solo
+                }
+            }
+
+            // Check if both players passed - end buy phase
+            if (lastActionWasPassA && lastActionWasPassB)
+            {
+                Debug.Log("[BUY] Both players passed - ending buy phase");
+                break;
+            }
         }
 
-
-        if (timeout >= 300f)
+        // Handle Player A's purchase if they selected a card (not if they passed)
+        if (!lastActionWasPassA && selectedCard != null)
         {
-            Debug.LogError("[BUY] Timeout!");
-            aPassed = true;
-            break;
-        }
-
-
-      if (!aPassed && selectedCard != null)
-{
     bool isSpecial = selectedCard.IsSpecialCard;
 
 
@@ -1135,8 +1586,10 @@ buyUI.SetHandSummary(isSpecial ? $"Played {selectedCard.Name}!" : $"Bought {sele
 // This function runs AFTER the slam (or immediately if we have no visual).
 void ApplySpecialCardNow()
 {
+    Debug.Log($"[ApplySpecialCardNow] Called. specialCards={(specialCards != null ? "exists" : "NULL")}, boughtCard={(boughtCard != null ? boughtCard.Name : "NULL")}");
     if (specialCards == null || boughtCard == null) return;
 
+    Debug.Log($"[ApplySpecialCardNow] IsSpecialCard={boughtCard.IsSpecialCard}, SpecialType={boughtCard.SpecialType}, PlayerA={PlayerA?.Name}, a={a?.Name}");
 
     // Kamikaze is interactive: start targeting AFTER slam
     if (boughtCard.IsSpecialCard &&
@@ -1152,6 +1605,7 @@ void ApplySpecialCardNow()
 
 
     // All other specials apply here (AFTER slam)
+    Debug.Log($"[ApplySpecialCardNow] Calling specialCards.Play() with SpecialType={boughtCard.SpecialType}");
     specialCards.Play(boughtCard.SpecialType, a, GetOpponent(a), this);
 }
 
@@ -1233,45 +1687,84 @@ if (!specialResolved)
 
 
 
-    // Refresh UI
-    if (battleHUD != null)
-        battleHUD.RefreshArmyStats(playerA, playerB);
+            // Refresh UI
+            if (battleHUD != null)
+                battleHUD.RefreshArmyStats(playerA, playerB);
 
+            buyUI.SetRoundGold(round, a.Gold);
+            yield return new WaitForSeconds(0.15f);
+        }
 
-    buyUI.SetRoundGold(round, a.Gold);
-    yield return new WaitForSeconds(0.5f);
-}
+        // Check again if both passed - end buy phase (after Player A's turn)
+        if (lastActionWasPassA && lastActionWasPassB)
+        {
+            Debug.Log("[BUY] Both players passed - ending buy phase");
+            break;
+        }
 
+        // === PLAYER B (AI) TURN ===
 
+        // If B already passed and A is buying solo, skip B's turn
+        if (lastActionWasPassB && !lastActionWasPassA)
+        {
+            Debug.Log("[BUY] Player B already passed, Player A continues buying...");
+            continue; // A gets another turn
+        }
 
+        // AI buys ONE unit per turn (alternating with Player A)
+        buyUI.SetPassButtonInteractable(false);
+        buyUI.SetHandSummary("Enemy's turn...");
 
-        if (aPassed) break;
+        // "Human-like thinking" delay
+        yield return new WaitForSeconds(UnityEngine.Random.Range(aiThinkDelayMin, aiThinkDelayMax));
 
+        UnitCard bCard = null;
+        bool bSuccess = TryAutoBuyOne(b, out bCard);
 
-      // === PLAYER B (AI) ===
-
-
-// "Human-like thinking" delay
-yield return new WaitForSeconds(UnityEngine.Random.Range(.35f, .85f));
-
-
-UnitCard bCard = null;
-bool bSuccess = TryAutoBuyOne(b, out bCard);
-        
         if (bSuccess)
         {
+            lastActionWasPassB = false;
             buyUI.SetEnemyBought($"{bCard.Name} ({bCard.Type}) Cost={bCard.Cost}");
+            Debug.Log($"[BUY] Player B bought {bCard.Name}");
+            yield return new WaitForSeconds(0.2f);
         }
         else
         {
-            bPassed = true;
+            lastActionWasPassB = true;
             buyUI.SetEnemyBought("PASS");
+            Debug.Log("[BUY] Player B passed (can't afford anything)");
         }
 
+        // If B just passed and A had previously passed, check if A can continue
+        if (lastActionWasPassA && lastActionWasPassB)
+        {
+            // Both passed - but give A another chance if they can still buy
+            if (CanAffordAnyCard(a))
+            {
+                // A gets control back - reset A's pass state
+                lastActionWasPassA = false;
+                buyUI.SetHandSummary("Enemy done - your turn to continue!");
+                Debug.Log("[BUY] Player B done, Player A continues buying...");
+                // Continue to next iteration where A will get input
+            }
+            else
+            {
+                // A truly can't buy anything either - end buy phase
+                Debug.Log("[BUY] Both players passed and can't afford more - ending buy phase");
+                break;
+            }
+        }
 
-        yield return new WaitForSeconds(0.3f);
+        // If Player A passed but B bought something, B gets another turn
+        if (lastActionWasPassA && !lastActionWasPassB)
+        {
+            Debug.Log("[BUY] Player A passed, Player B continues...");
+            continue; // Loop back - A's turn will be skipped, B goes again
+        }
+
+        // Normal alternation - Player A's turn next
+        Debug.Log("[BUY] Player A ready for input (AI turn complete)");
     }
-
 
     buyUI.End();
 }
@@ -1298,11 +1791,20 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
 
     UnitCard chosen = p.Hand[handIndex];
 
+    // Calculate effective cost (with doctrine reductions like Motorhead/Birdwatcher)
+    int effectiveCost = GetEffectiveCost(p, chosen);
 
     // Can we afford it?
-    if (chosen.Cost > p.Gold)
+    if (effectiveCost > p.Gold)
         return false;
 
+    // Check if this unit type is allowed on the current battlefield
+    // (e.g., Air cards blocked on GroundOnly battlefields)
+    if (!Battlefield.IsTypeAllowed(chosen.Type))
+    {
+        Debug.LogWarning($"[BUY] Cannot buy {chosen.Name} - {chosen.Type} units not allowed on this battlefield (Mode: {Battlefield.CurrentRowMode})");
+        return false;
+    }
 
     // =========================================================
     // SPECIAL CARD PATH (does NOT place a unit)
@@ -1313,8 +1815,8 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
             return false;
 
 
-        // BUY
-        p.Gold -= chosen.Cost;
+        // BUY (use effective cost with doctrine reductions)
+        p.Gold -= effectiveCost;
         p.Hand.RemoveAt(handIndex);
 
 
@@ -1322,7 +1824,7 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
         p.Deck.Discard(chosen);
 
 
-        Debug.Log($"[BUY] {p.Name} plays SPECIAL CARD: {chosen.Name} (SpecialType={chosen.SpecialType}, Cost={chosen.Cost}) | GoldAfterPlay={p.Gold}");
+        Debug.Log($"[BUY] {p.Name} plays SPECIAL CARD: {chosen.Name} (SpecialType={chosen.SpecialType}, Cost={chosen.Cost}, EffectiveCost={effectiveCost}) | GoldAfterPlay={p.Gold}");
 
 
         // NOTE: Special-card effect is triggered AFTER the slam animation now.
@@ -1356,8 +1858,8 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
     }
 
 
-    // BUY
-    p.Gold -= chosen.Cost;
+    // BUY (use effective cost with doctrine reductions)
+    p.Gold -= effectiveCost;
     p.Hand.RemoveAt(handIndex);
 
 
@@ -1369,12 +1871,17 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
     SpawnWorldVisualForBoughtUnit(p, unit, chosen);
     placedUnitId = unit.InstanceId;
 
+    // UNIFIED HEALTH SYSTEM: Expand commander health pool
+    p.OnUnitDeployed(unit);
+
+    // ABILITY ACTIVATION FEEDBACK: Show floating numbers for active abilities
+    CheckAndShowAbilityActivations(p, unit, targetRow);
 
     // DISCARD
     p.Deck.Discard(chosen);
 
 
-    Debug.Log($"[BUY] {p.Name} buys CARD: {chosen.Name} (Type={chosen.Type}, Cost={chosen.Cost}) -> {targetRow} | UnitId=[{unit.InstanceId}] | GoldAfterBuy={p.Gold}");
+    Debug.Log($"[BUY] {p.Name} buys CARD: {chosen.Name} (Type={chosen.Type}, Cost={chosen.Cost}, EffectiveCost={effectiveCost}) -> {targetRow} | UnitId=[{unit.InstanceId}] | GoldAfterBuy={p.Gold}");
 
 
     AbilitySystem.ExecuteOnPlay(p, GetOpponent(p), unit, this);
@@ -1382,7 +1889,8 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
 
     if (battleHUD != null)
     {
-        battleHUD.RefreshArmyStats(playerA, playerB);
+        // Update army stats and commander health display
+        battleHUD.OnUnitDeployed(p, unit, playerA, playerB);
         battleHUD.UpdateBothGold(playerA, playerB);
     }
 
@@ -1395,6 +1903,48 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
 
 
 
+
+    /// <summary>
+    /// Checks if a player can afford to buy any card in their hand.
+    /// Takes into account gold, row capacity, and battlefield restrictions.
+    /// </summary>
+    private bool CanAffordAnyCard(Player p)
+    {
+        if (p.Hand == null || p.Hand.Count == 0)
+            return false;
+
+        for (int i = 0; i < p.Hand.Count; i++)
+        {
+            UnitCard card = p.Hand[i];
+
+            // Calculate effective cost (with doctrine reductions)
+            int cardEffectiveCost = GetEffectiveCost(p, card);
+
+            if (cardEffectiveCost > p.Gold)
+                continue;
+
+            // Check if this unit type is allowed on the current battlefield
+            if (!Battlefield.IsTypeAllowed(card.Type))
+                continue;
+
+            // Special cards don't need row capacity checks
+            if (card.IsSpecialCard)
+            {
+                if (specialCards != null && !specialCards.CanPlay(card.SpecialType, p, GetOpponent(p), this))
+                    continue;
+                return true;
+            }
+
+            // Unit cards need space in the correct row
+            RowType targetRow = GetPlacementRow(p, card.Type);
+            if (p.Rows[targetRow].Units.Count >= maxUnitsPerRow)
+                continue;
+
+            return true;
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// AI auto-buy: buys exactly ONE affordable unit.
@@ -1417,10 +1967,15 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
     {
         UnitCard card = p.Hand[i];
 
+        // Calculate effective cost (with doctrine reductions - mainly for future AI doctrines)
+        int cardEffectiveCost = GetEffectiveCost(p, card);
 
-        if (card.Cost > p.Gold)
+        if (cardEffectiveCost > p.Gold)
             continue;
 
+        // Check if this unit type is allowed on the current battlefield
+        if (!Battlefield.IsTypeAllowed(card.Type))
+            continue;
 
         // =========================================================
         // SPECIAL CARDS: no row capacity checks (but optional CanPlay)
@@ -1459,8 +2014,8 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
 
     if (!randomizeAIBuys)
     {
-        // Deterministic: buy cheapest
-        affordable.Sort((a, b) => a.Cost.CompareTo(b.Cost));
+        // Deterministic: buy cheapest (using effective cost)
+        affordable.Sort((a, b) => GetEffectiveCost(p, a).CompareTo(GetEffectiveCost(p, b)));
         chosen = affordable[0];
     }
     else
@@ -1470,14 +2025,16 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
         chosen = affordable[index];
     }
 
+    // Calculate effective cost for the chosen card
+    int effectiveCost = GetEffectiveCost(p, chosen);
 
     // =========================================================
     // EXECUTE BUY
     // =========================================================
 
 
-    // BUY
-    p.Gold -= chosen.Cost;
+    // BUY (use effective cost with doctrine reductions)
+    p.Gold -= effectiveCost;
     p.Hand.Remove(chosen);
 
 
@@ -1490,7 +2047,7 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
     // =========================================================
     if (chosen.IsSpecialCard)
     {
-        Debug.Log($"[BUY-AI] {p.Name} plays SPECIAL CARD: {chosen.Name} (SpecialType={chosen.SpecialType}, Cost={chosen.Cost}) | GoldAfterPlay={p.Gold}");
+        Debug.Log($"[BUY-AI] {p.Name} plays SPECIAL CARD: {chosen.Name} (SpecialType={chosen.SpecialType}, Cost={chosen.Cost}, EffectiveCost={effectiveCost}) | GoldAfterPlay={p.Gold}");
 
 
         if (specialCards != null)
@@ -1531,8 +2088,13 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
     p.Rows[chosenRow].Units.Add(unit);
     SpawnWorldVisualForBoughtUnit(p, unit, chosen);
 
+    // UNIFIED HEALTH SYSTEM: Expand commander health pool
+    p.OnUnitDeployed(unit);
 
-    Debug.Log($"[BUY-AI] {p.Name} buys {chosen.Name} (Cost={chosen.Cost}) -> {chosenRow} | UnitId=[{unit.InstanceId}] | GoldAfterBuy={p.Gold}");
+    // ABILITY ACTIVATION FEEDBACK: Show floating numbers for active abilities
+    CheckAndShowAbilityActivations(p, unit, chosenRow);
+
+    Debug.Log($"[BUY-AI] {p.Name} buys {chosen.Name} (Cost={chosen.Cost}, EffectiveCost={effectiveCost}) -> {chosenRow} | UnitId=[{unit.InstanceId}] | GoldAfterBuy={p.Gold}");
 
 
     // ON-PLAY TRIGGERS
@@ -1542,7 +2104,8 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
     // Update HUD after AI purchase
     if (battleHUD != null)
     {
-        battleHUD.RefreshArmyStats(playerA, playerB);
+        // Update army stats and commander health display
+        battleHUD.OnUnitDeployed(p, unit, playerA, playerB);
         battleHUD.UpdateBothGold(playerA, playerB);
     }
 
@@ -1930,6 +2493,246 @@ ApplySpawnerRowLayout(playerA, PlayerSide.A);
     if (fieldSpawner != null)
         fieldSpawner.DestroyUnitVisual(unit.InstanceId);
 }
+
+// ========================================
+// ABILITY ACTIVATION FEEDBACK (FLOATING NUMBERS)
+// ========================================
+
+/// <summary>
+/// Checks for ability activations after a unit is placed and spawns floating damage numbers.
+/// This provides visual feedback during buy phase for abilities like:
+/// - Double ATK if 3 of a kind
+/// - Double ATK if full health
+/// - Double ATK if enemy has tank
+///
+/// RULES FOR 3-OF-A-KIND:
+/// - When placing the 3rd unit (first activation): show for ALL units with same name
+/// - When placing 4th+ unit: only show for the newly placed unit
+/// </summary>
+private void CheckAndShowAbilityActivations(Player owner, Unit placedUnit, RowType targetRow)
+{
+    if (owner == null || placedUnit == null) return;
+    if (fieldSpawner == null) return;
+
+    Player enemy = GetOpponent(owner);
+    var row = owner.Rows[targetRow];
+
+    // Build count by name for this row (for 3-of-a-kind detection)
+    var aliveCountByName = new Dictionary<string, int>();
+    foreach (var u in row.Units)
+    {
+        if (u != null && u.IsAlive)
+        {
+            if (!aliveCountByName.ContainsKey(u.Name))
+                aliveCountByName[u.Name] = 0;
+            aliveCountByName[u.Name]++;
+        }
+    }
+
+    // Get count for the placed unit's name
+    int countOfPlacedName = 0;
+    if (aliveCountByName.TryGetValue(placedUnit.Name, out int cnt))
+        countOfPlacedName = cnt;
+
+    // =====================================================
+    // PASSIVE/ON-PLAY ABILITIES: Show text for abilities that are always active on play
+    // These don't depend on ATK bonuses - they affect HP, gold, or have other effects
+    // =====================================================
+
+    // ARMORED: Show text even though it doesn't give ATK bonus (it doubles HP)
+    if (placedUnit.Ability == UnitAbilityType.ReduceIncomingDamage50Percent)
+    {
+        SpawnAbilityTextForType(placedUnit, UnitAbilityType.ReduceIncomingDamage50Percent);
+    }
+
+    // DUPLICATE: Shows when unit duplicates itself from deck on play
+    if (placedUnit.Ability == UnitAbilityType.DuplicateSelfFromDeckOnPlay)
+    {
+        SpawnAbilityTextForType(placedUnit, UnitAbilityType.DuplicateSelfFromDeckOnPlay);
+    }
+
+    // GAIN GOLD: Shows when unit gives gold on play
+    if (placedUnit.Ability == UnitAbilityType.GainGoldOnPlay)
+    {
+        SpawnAbilityTextForType(placedUnit, UnitAbilityType.GainGoldOnPlay);
+    }
+
+    // COMMANDER BYPASS: Shows that 25% of damage bypasses to commander
+    if (placedUnit.Ability == UnitAbilityType.CommanderBypassDamage25Percent)
+    {
+        SpawnAbilityTextForType(placedUnit, UnitAbilityType.CommanderBypassDamage25Percent);
+    }
+
+    // COUNTERATTACK: Shows that unit will counter when damaged
+    if (placedUnit.Ability == UnitAbilityType.Counterattack)
+    {
+        SpawnAbilityTextForType(placedUnit, UnitAbilityType.Counterattack);
+    }
+
+    // =====================================================
+    // ATK-BASED ABILITIES: Check if the placed unit has an ATK-modifying ability
+    // =====================================================
+    int effectiveATK = AbilitySystem.GetEffectiveAttackForBuyPhase(
+        placedUnit, owner, enemy, targetRow, aliveCountByName, out AbilityActivationInfo activation);
+
+    if (activation.AbilityActivated && activation.BonusATK > 0)
+    {
+        // For 3-of-a-kind: special handling
+        if (activation.AbilityType == UnitAbilityType.DoubleAttackIfThreeOfKindOnRow)
+        {
+            if (countOfPlacedName == 3)
+            {
+                // FIRST ACTIVATION: Show for ALL units with same name and same ability
+                foreach (var unit in row.Units)
+                {
+                    if (unit == null || !unit.IsAlive) continue;
+                    if (unit.Name != placedUnit.Name) continue;
+                    if (unit.Ability != UnitAbilityType.DoubleAttackIfThreeOfKindOnRow) continue;
+
+                    SpawnAbilityActivationNumber(unit, activation);
+                }
+            }
+            else if (countOfPlacedName > 3)
+            {
+                // SUBSEQUENT ACTIVATION: Only show for the newly placed unit
+                SpawnAbilityActivationNumber(placedUnit, activation);
+            }
+            // If count < 3, ability isn't active yet, don't show anything
+        }
+        else
+        {
+            // For other abilities (including commander bonus), just show for the placed unit
+            SpawnAbilityActivationNumber(placedUnit, activation);
+        }
+    }
+
+    // SPECIAL CASE: If a TANK was placed, check if the ENEMY has any RPG units
+    // that now get their "Double ATK if enemy has tank" ability activated
+    if (placedUnit.Type == UnitType.Vehicle)
+    {
+        CheckEnemyRPGActivation(enemy, owner);
+    }
+}
+
+/// <summary>
+/// Checks if the enemy has any RPG units that now get activated because we placed a tank.
+/// This handles the case where: Enemy has RPG, then we place a tank.
+/// </summary>
+private void CheckEnemyRPGActivation(Player rpgOwner, Player tankOwner)
+{
+    if (rpgOwner == null || tankOwner == null) return;
+    if (fieldSpawner == null) return;
+
+    // Check if this is the FIRST tank being placed (RPG wasn't active before)
+    int tankCount = 0;
+    foreach (var row in tankOwner.Rows.Values)
+    {
+        foreach (var u in row.Units)
+        {
+            if (u != null && u.IsAlive && u.Type == UnitType.Vehicle)
+                tankCount++;
+        }
+    }
+
+    // Only show activation feedback if this is the first tank
+    if (tankCount != 1) return;
+
+    // Find all enemy RPG units and show their activation
+    foreach (var rowKvp in rpgOwner.Rows)
+    {
+        RowType rowType = rowKvp.Key;
+        var row = rowKvp.Value;
+
+        // Build count by name for this row
+        var aliveCountByName = new Dictionary<string, int>();
+        foreach (var u in row.Units)
+        {
+            if (u != null && u.IsAlive)
+            {
+                if (!aliveCountByName.ContainsKey(u.Name))
+                    aliveCountByName[u.Name] = 0;
+                aliveCountByName[u.Name]++;
+            }
+        }
+
+        foreach (var unit in row.Units)
+        {
+            if (unit == null || !unit.IsAlive) continue;
+            if (unit.Ability != UnitAbilityType.DoubleAttackIfEnemyHasTank) continue;
+
+            int effectiveATK = AbilitySystem.GetEffectiveAttackForBuyPhase(
+                unit, rpgOwner, tankOwner, rowType, aliveCountByName, out AbilityActivationInfo activation);
+
+            if (activation.AbilityActivated && activation.BonusATK > 0)
+            {
+                SpawnAbilityActivationNumber(unit, activation);
+            }
+        }
+    }
+}
+
+/// <summary>
+/// Determines if we should show ability feedback for this unit.
+/// For 3-of-a-kind, only show if we just reached exactly 3 units.
+/// For other abilities, always show for newly placed units.
+/// </summary>
+private bool ShouldShowAbilityFeedback(Unit unit, AbilityActivationInfo activation, Dictionary<string, int> aliveCountByName)
+{
+    switch (activation.AbilityType)
+    {
+        case UnitAbilityType.DoubleAttackIfThreeOfKindOnRow:
+            // Only show when we JUST hit exactly 3 (not 4, 5, etc.)
+            if (aliveCountByName.TryGetValue(unit.Name, out int count))
+                return count == 3;
+            return false;
+
+        case UnitAbilityType.DoubleAttackIfFullHealth:
+            // Show for newly placed units (they're always at full health)
+            return true;
+
+        case UnitAbilityType.DoubleAttackIfEnemyHasTank:
+            // Show when the ability is active
+            return true;
+
+        default:
+            return true;
+    }
+}
+
+/// <summary>
+/// Spawns a floating damage number showing the ability activation.
+/// Uses AbilityDisplaySettings for configurable text (e.g., "x2 ATK").
+/// </summary>
+private void SpawnAbilityActivationNumber(Unit unit, AbilityActivationInfo activation)
+{
+    if (fieldSpawner == null) return;
+
+    Vector3 unitPos = fieldSpawner.GetUnitPosition(unit.InstanceId);
+    if (unitPos == Vector3.zero) return;
+
+    // Use the new SpawnAbilityText which reads from AbilityDisplaySettings
+    // Text, color, and size are all configurable in the ScriptableObject
+    DamageNumberSpawner.SpawnAbilityText(activation.AbilityType, unitPos);
+
+    Debug.Log($"[ABILITY] {unit.Name} ability activated: {activation.Reason} (+{activation.BonusATK} ATK)");
+}
+
+/// <summary>
+/// Spawns ability text directly for a given ability type.
+/// Used for passive abilities that don't have an ATK bonus (like Armored which doubles HP).
+/// </summary>
+private void SpawnAbilityTextForType(Unit unit, UnitAbilityType abilityType)
+{
+    if (fieldSpawner == null) return;
+
+    Vector3 unitPos = fieldSpawner.GetUnitPosition(unit.InstanceId);
+    if (unitPos == Vector3.zero) return;
+
+    DamageNumberSpawner.SpawnAbilityText(abilityType, unitPos);
+
+    Debug.Log($"[ABILITY] {unit.Name} passive ability displayed: {abilityType}");
+}
+
 private bool TryFindUnitById(Player owner, int unitId, out Unit found, out RowType foundRow)
 {
     found = null;
@@ -2100,22 +2903,120 @@ private Unit FindHighestHpUnitAnywhere(Player p, out RowType foundRow)
         u.MaxHP = newMax;
         u.HP = newMax;
     }
-private static bool IsVehicleish(Unit u) =>
-    u != null && (u.Type == UnitType.Vehicle || u.Type == UnitType.Ranged || u.CountsAsVehicle);
+/// <summary>
+/// Returns true if unit is "vehicle-ish" (Vehicle, or Ranged on Standard mode, or has CountsAsVehicle flag).
+/// On GroundOnly battlefields, Ranged is NOT vehicle-ish (they have their own row).
+/// </summary>
+private static bool IsVehicleish(Unit u)
+{
+    if (u == null) return false;
+    if (u.Type == UnitType.Vehicle) return true;
+    if (u.CountsAsVehicle) return true;
+
+    // On ground-only battlefields, Ranged is NOT vehicle-ish
+    if (u.Type == UnitType.Ranged)
+    {
+        // Use static helper from Battlefield (safe even if no instance)
+        return Battlefield.IsRangedVehicleish;
+    }
+
+    return false;
+}
+
+// ========================================
+// ABILITY HELPER METHODS
+// Use these instead of row-based checks for universal battlefield support
+// ========================================
+
+/// <summary>
+/// Counts alive units of a specific type across all rows.
+/// Works universally across battlefield types.
+/// Use this instead of row-based "is row full" checks.
+/// </summary>
+public static int CountAliveUnitsOfType(Player p, UnitType type)
+{
+    if (p == null) return 0;
+
+    int count = 0;
+    foreach (var row in p.Rows.Values)
+    {
+        foreach (var u in row.Units)
+        {
+            if (u != null && u.IsAlive && u.Type == type)
+                count++;
+        }
+    }
+    return count;
+}
+
+/// <summary>
+/// Checks if player has at least N units of a specific type.
+/// Use this instead of "row is full" checks for abilities.
+/// Example: "If 3+ Ranged units: double ATK"
+/// </summary>
+public static bool HasAtLeastNUnitsOfType(Player p, UnitType type, int n)
+{
+    return CountAliveUnitsOfType(p, type) >= n;
+}
+
+/// <summary>
+/// Counts all alive units across all rows.
+/// </summary>
+public static int CountAllAliveUnits(Player p)
+{
+    if (p == null) return 0;
+
+    int count = 0;
+    foreach (var row in p.Rows.Values)
+    {
+        foreach (var u in row.Units)
+        {
+            if (u != null && u.IsAlive)
+                count++;
+        }
+    }
+    return count;
+}
+
+/// <summary>
+/// Checks if a row has at least N alive units (regardless of type).
+/// This is for position-based abilities like "Front row has 5 units: bonus".
+/// </summary>
+public static bool RowHasAtLeastNUnits(Player p, RowType row, int n)
+{
+    if (p == null || !p.Rows.ContainsKey(row)) return false;
+
+    int count = 0;
+    foreach (var u in p.Rows[row].Units)
+    {
+        if (u != null && u.IsAlive)
+            count++;
+    }
+    return count >= n;
+}
 
 
 private RowType GetPlacementRow(Player p, UnitType type)
 {
-    RowLayout layout = rowLayoutByPlayer[p];
+    // Check battlefield config first for row overrides
+    if (Battlefield.Instance?.Config != null)
+    {
+        RowType battlefieldRow = Battlefield.GetRowForType(type);
 
+        // If battlefield config says Ranged goes to Back, use that directly
+        // This handles GroundOnly mode where Ranged is separate from Vehicle
+        if (Battlefield.IsRangedSeparate && type == UnitType.Ranged)
+            return battlefieldRow;
+    }
+
+    // Fall back to player's current row layout (handles rearrangement swaps)
+    RowLayout layout = rowLayoutByPlayer[p];
 
     if (type == UnitType.Infantry) return layout.infantryRow;
     if (type == UnitType.Air) return layout.airRow;
 
-
-    // Vehicles + Ranged always go to the vehicle group row
+    // Vehicles + Ranged go to the vehicle group row (Standard mode behavior)
     if (type == UnitType.Vehicle || type == UnitType.Ranged) return layout.vehicleRow;
-
 
     return layout.infantryRow;
 }
@@ -2484,9 +3385,24 @@ RowType row = GetPlacementRow(owner, copyCard.Type);
         ApplyGlobalMultipliers(copyUnit);
         owner.Rows[row].Units.Add(copyUnit);
 
+        // UNIFIED HEALTH SYSTEM: Expand commander health pool for copied unit
+        owner.OnUnitDeployed(copyUnit);
 
         owner.Deck.Discard(copyCard);
 
+        // 4) SPAWN VISUAL on the battlefield (this was missing!)
+        var side = (owner == playerA) ? PlayerSide.A : PlayerSide.B;
+        if (fieldSpawner != null && copyCard.Definition != null)
+        {
+            fieldSpawner.TrySpawn(copyCard.Definition, side, copyUnit.InstanceId, owner);
+            fieldSpawner.InitUnitHealthBar(copyUnit.InstanceId, copyUnit.MaxHP, copyUnit.HP);
+        }
+
+        // Update commander HP bar to reflect the expanded health pool
+        if (battleHUD != null)
+        {
+            battleHUD.FullRefresh(playerA, playerB, immediate: true);
+        }
 
         Debug.Log(
             $"[ON-PLAY] {owner.Name} plays extra copy of {copyUnit.Name} " +
@@ -2494,7 +3410,7 @@ RowType row = GetPlacementRow(owner, copyCard.Type);
         );
 
 
-        // 4) IMPORTANT: Prevent infinite loops
+        // 5) IMPORTANT: Prevent infinite loops - don't trigger another duplicate
         if (copyUnit.Ability != UnitAbilityType.DuplicateSelfFromDeckOnPlay)
         {
             AbilitySystem.ExecuteOnPlay(
@@ -2644,9 +3560,16 @@ public void NotifyUnitClicked(UnitWorldHandle handle)
     int capacity = maxUnitsPerRow;
 
 
-    // "Vehicle-ish" includes Vehicles, Ranged, and anything flagged CountsAsVehicle
-    bool IsVehicleish(Unit u) =>
-        u != null && (u.Type == UnitType.Vehicle || u.Type == UnitType.Ranged || u.CountsAsVehicle);
+    // "Vehicle-ish" includes Vehicles, Ranged (on Standard mode), and anything flagged CountsAsVehicle
+    // On GroundOnly battlefields, Ranged is NOT vehicle-ish
+    bool IsVehicleishLocal(Unit u)
+    {
+        if (u == null) return false;
+        if (u.Type == UnitType.Vehicle) return true;
+        if (u.CountsAsVehicle) return true;
+        if (u.Type == UnitType.Ranged) return Battlefield.IsRangedVehicleish;
+        return false;
+    }
 
 
     // --------------------------------------------------
@@ -2659,7 +3582,7 @@ public void NotifyUnitClicked(UnitWorldHandle handle)
     {
         foreach (var u in kvp.Value.Units)
         {
-            if (IsVehicleish(u))
+            if (IsVehicleishLocal(u))
             {
                 enemyHasAnyVehicleish = true;
                 break;
@@ -2691,7 +3614,7 @@ RowType vehicleRow = GetPlacementRow(enemy, UnitType.Vehicle);
 
     foreach (var u in enemy.Rows[vehicleRow].Units)
     {
-        if (IsVehicleish(u))
+        if (IsVehicleishLocal(u))
             vehicleishCountInRow++;
     }
 
@@ -2724,7 +3647,7 @@ RowType vehicleRow = GetPlacementRow(enemy, UnitType.Vehicle);
 
     foreach (var u in enemy.Rows[vehicleRow].Units)
     {
-        if (!IsVehicleish(u)) continue;
+        if (!IsVehicleishLocal(u)) continue;
 
 
         int score = (u.ATK * 1000) + u.HP;
@@ -2762,8 +3685,13 @@ DestroyUnitWithEffects(enemy, strongest, vehicleRow);
 
 
     /// <summary>
-    /// ON-PLAY: Marks a random enemy unit for 2x vulnerability.
+    /// ON-PLAY: Marks a random enemy unit, halving their HP immediately.
     /// Used by: TargetMark ability.
+    ///
+    /// SIMPLIFIED SYSTEM:
+    /// Instead of complex 2x damage multipliers during combat, we simply
+    /// halve the unit's HP when marked. This makes the effect visible on
+    /// the health bar and removes hidden combat math.
     /// </summary>
     public void ApplyTargetMarkOnPlay(Player owner, Player enemy, Unit markerUnit)
     {
@@ -2803,6 +3731,40 @@ DestroyUnitWithEffects(enemy, strongest, vehicleRow);
         Unit target = aliveEnemies[index];
         target.IsMarkedTarget = true;
 
+        // SIMPLIFIED MARKING: Halve the unit's HP total (not damage - shrinks the pool)
+        // Both HP and MaxHP are halved so the health bar still shows "full"
+        int maxHPBefore = target.MaxHP;
+        int hpBefore = target.HP;
+
+        // Calculate new values (halved)
+        int newMaxHP = target.MaxHP / 2;
+        int newHP = target.HP / 2;
+        int hpReduced = target.MaxHP - newMaxHP;  // Amount the pool shrinks by
+
+        // Apply to unit
+        target.MaxHP = newMaxHP;
+        target.HP = newHP;
+
+        // UNIFIED HEALTH SYSTEM: Shrink commander's health pool (not damage!)
+        if (hpReduced > 0)
+        {
+            enemy.OnUnitMaxHPReduced(hpReduced);
+        }
+
+        // Update the world health bar with new maxHP
+        if (fieldSpawner != null)
+        {
+            fieldSpawner.InitUnitHealthBar(target.InstanceId, target.MaxHP, target.HP);
+        }
+
+        // Update commander HP bar to reflect the shrunk health pool
+        if (battleHUD != null)
+        {
+            battleHUD.FullRefresh(playerA, playerB, immediate: true);
+        }
+
+        // VISUAL EFFECT: Spawn mark target animation overlay on the marked unit
+        SpawnMarkTargetEffect(target);
 
         // Find the row for logging clarity
         RowType targetRow = RowType.Front;
@@ -2816,7 +3778,35 @@ DestroyUnitWithEffects(enemy, strongest, vehicleRow);
         }
 
 
-        Debug.Log($"[ON-PLAY][TARGET] {owner.Name}'s {markerUnit.Name} marks {enemy.Name}'s {target.Name} (Row={targetRow}, UnitId={target.InstanceId})");
+        Debug.Log($"[ON-PLAY][TARGET] {owner.Name}'s {markerUnit.Name} marks {enemy.Name}'s {target.Name} - MaxHP halved: {maxHPBefore} -> {target.MaxHP}, HP: {hpBefore} -> {target.HP} (Row={targetRow}, UnitId={target.InstanceId})");
+    }
+
+    /// <summary>
+    /// Spawns the mark target visual effect on a unit.
+    /// Uses MarkTargetEffect component with settings from CombatVisualSettings.
+    /// </summary>
+    private void SpawnMarkTargetEffect(Unit target)
+    {
+        if (fieldSpawner == null) return;
+
+        var settings = CombatVisualSettings.Instance;
+        if (settings == null || !settings.enableMarkTargetEffect) return;
+
+        // Get the unit's visual GameObject
+        GameObject unitVisual = fieldSpawner.GetUnitVisual(target.InstanceId);
+        if (unitVisual == null)
+        {
+            Debug.LogWarning($"[MarkTargetEffect] Could not find visual for unit {target.InstanceId}");
+            return;
+        }
+
+        // Spawn the effect using the static factory method
+        MarkTargetEffect effect = MarkTargetEffect.SpawnOnUnit(unitVisual);
+
+        if (effect != null)
+        {
+            Debug.Log($"[MarkTargetEffect] Spawned mark effect on {target.Name} (UnitId={target.InstanceId})");
+        }
     }
     #endregion
 

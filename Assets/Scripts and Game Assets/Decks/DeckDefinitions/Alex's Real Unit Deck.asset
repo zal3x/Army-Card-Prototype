@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6151811ccd9244dcda75d59bd564273a, type: 3}
+  m_Name: Alex's Real Unit Deck
+  m_EditorClassIdentifier: Assembly-CSharp::DeckListDefinition
+  entries:
+  - card: {fileID: 11400000, guid: 531cd28c2ccbd4f688ecd9c165af780c, type: 2}
+    count: 3
+  - card: {fileID: 11400000, guid: 7539b5589a6e84cabb4f7957f2dc766e, type: 2}
+    count: 3
+  - card: {fileID: 11400000, guid: 0c7520f0cc02a4d8e9d347bf2f7fd79c, type: 2}
+    count: 0
+  - card: {fileID: 11400000, guid: 0eb78116dffef46329841cc9d4841a67, type: 2}
+    count: 2
+  - card: {fileID: 11400000, guid: d02c8b8c3a1c14fe4a8b87eb2d9c5f94, type: 2}
+    count: 3
+  - card: {fileID: 11400000, guid: 3359e22a61e3845f4bd49478773a60e1, type: 2}
+    count: 3
+  - card: {fileID: 11400000, guid: 3bf3898461f2c4123b6c724b763cd345, type: 2}
+    count: 0
+  - card: {fileID: 11400000, guid: 0db6064ab3f1d46c0961f8923b40228b, type: 2}
+    count: 0
+  - card: {fileID: 11400000, guid: c613ca5466304427db34e5d6fe9f346a, type: 2}
+    count: 3
+  - card: {fileID: 11400000, guid: c930bbfd77b8b4065a117f31b54aa30b, type: 2}
+    count: 3
+  - card: {fileID: 11400000, guid: 8673c1d3dba6e4bb6ba70332622d1752, type: 2}
+    count: 0
+  - card: {fileID: 11400000, guid: 12f021aa3995c47479bdf7d2e4c13d6c, type: 2}
+    count: 0
+  - card: {fileID: 11400000, guid: 73c3f048f24584e03b146adeac902549, type: 2}
+    count: 0
+  - card: {fileID: 11400000, guid: a3670587da2e0457a9b4a0f06e31d956, type: 2}
+    count: 3
+  - card: {fileID: 11400000, guid: f7cb2a01cb0e541f58f4fdb14e98e6a6, type: 2}
+    count: 3
+  - card: {fileID: 11400000, guid: db6deca5492244a53a6f51c6187c6d38, type: 2}
+    count: 3
+  - card: {fileID: 11400000, guid: 15a9537f07d464f148758f1a61710e5f, type: 2}
+    count: 3
+  - card: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
+    count: 5
+  - card: {fileID: 11400000, guid: 7d429a3d54a794b24a8f548adf89d0f9, type: 2}
+    count: 5

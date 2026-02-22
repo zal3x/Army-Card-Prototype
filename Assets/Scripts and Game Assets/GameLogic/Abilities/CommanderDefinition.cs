@@ -10,6 +10,14 @@ public class CommanderDefinition : ScriptableObject
     [TextArea(2, 6)]
     public string description;
 
+    [Header("World Map Display")]
+    [Tooltip("Portrait sprite shown on world map marker")]
+    public Sprite mapPortrait;
+
+    [Tooltip("Difficulty rating (1-5 stars)")]
+    [Range(1, 5)]
+    public int difficulty = 1;
+
     [Header("Deck")]
     public DeckListDefinition deck;
 

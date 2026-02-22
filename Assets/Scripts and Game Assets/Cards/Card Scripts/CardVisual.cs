@@ -33,6 +33,8 @@ public class CardVisual : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     [Header("Hover Effects")]
     public float hoverScale = 1.05f;
     public float hoverAnimDuration = 0.15f;
+    [Tooltip("Delay before hover effect starts (prevents rapid flickering)")]
+    public float hoverDelay = 0.2f;
     public Image hoverGlow;
 
     [Header("Selection State")]
@@ -103,7 +105,15 @@ private RectTransform portraitRect;
     private int hoverTweenId = -1;
     private int clickTweenId = -1;
 
+    // Hover delay tracking
+    private Coroutine hoverDelayCoroutine;
+    private Vector3 scaleBeforeHover;
+    private bool hoverEffectActive = false; // True when hover scale is applied
+
     public System.Action<CardVisual> OnCardClicked;
+
+    // Public property for carousel to check if hover is active
+    public bool IsHoverEffectActive => hoverEffectActive;
     public System.Action<CardVisual> OnCardHoverEnter;
     public System.Action<CardVisual> OnCardHoverExit;
 private void Awake()
@@ -181,6 +191,25 @@ public void SetUseInternalFlightScaling(bool enabled)
         displayCost = eff.Cost;
         displayAtk = eff.Attack;
         displayHp = eff.HP;
+    }
+
+    // Apply Doctrine cost reductions (Motorhead for vehicles, Birdwatcher for aircraft)
+    if (DoctrineSystem.GetTypeCostReduction != null && cardData.Owner != null)
+    {
+        int reduction = DoctrineSystem.GetTypeCostReduction(cardData.Owner, cardData.Type);
+        displayCost = Mathf.Max(0, displayCost - reduction);
+    }
+
+    // Add Perk ATK bonuses (Stopping Power, Piercing, Explosives, Heads Up)
+    if (PerkSystem.GetTypeAtkBonus != null && cardData.Owner != null)
+    {
+        displayAtk += PerkSystem.GetTypeAtkBonus(cardData.Owner, cardData.Type);
+    }
+
+    // Add Doctrine ATK bonuses (Close Combat, Ranged Warrior, Iron Skin, Death from Above)
+    if (DoctrineSystem.GetTypeAtkBonus != null && cardData.Owner != null)
+    {
+        displayAtk += DoctrineSystem.GetTypeAtkBonus(cardData.Owner, cardData.Type);
     }
 
     // --- Always shown (both unit + special) ---
@@ -293,13 +322,15 @@ public void SetUseInternalFlightScaling(bool enabled)
         if (isFlying) return;
 
         isHovered = true;
-        if (hoverGlow != null) hoverGlow.enabled = true;
 
-        CancelHoverTweens();
+        // Cancel any existing hover delay
+        if (hoverDelayCoroutine != null)
+        {
+            StopCoroutine(hoverDelayCoroutine);
+        }
 
-        hoverTweenId = LeanTween.scale(gameObject, originalScale * hoverScale, hoverAnimDuration)
-            .setEaseOutBack()
-            .id;
+        // Start delayed hover effect
+        hoverDelayCoroutine = StartCoroutine(HoverDelayCoroutine());
 
         OnCardHoverEnter?.Invoke(this);
     }
@@ -309,21 +340,81 @@ public void SetUseInternalFlightScaling(bool enabled)
         if (isFlying) return;
 
         isHovered = false;
-        if (hoverGlow != null) hoverGlow.enabled = false;
 
-        CancelHoverTweens();
+        // Cancel hover delay if still waiting (hover never activated)
+        if (hoverDelayCoroutine != null)
+        {
+            StopCoroutine(hoverDelayCoroutine);
+            hoverDelayCoroutine = null;
+            // No need to scale back - hover effect never started
+            return;
+        }
 
-        hoverTweenId = LeanTween.scale(gameObject, originalScale, hoverAnimDuration)
-            .setEaseInOutQuad()
-            .id;
+        // Only scale back if hover effect was actually active
+        if (hoverEffectActive)
+        {
+            if (hoverGlow != null) hoverGlow.enabled = false;
+
+            CancelHoverTweens();
+
+            // Scale back to the scale we had before hover
+            // Keep hoverEffectActive=true during shrink to prevent carousel interference
+            hoverTweenId = LeanTween.scale(gameObject, scaleBeforeHover, hoverAnimDuration)
+                .setEaseInOutQuad()
+                .setOnComplete(() => {
+                    hoverEffectActive = false; // Now carousel can resume updates
+                })
+                .id;
+        }
 
         OnCardHoverExit?.Invoke(this);
     }
 
+    private System.Collections.IEnumerator HoverDelayCoroutine()
+    {
+        // Wait for delay
+        yield return new WaitForSeconds(hoverDelay);
+
+        // Store current scale and alpha before applying hover
+        scaleBeforeHover = transform.localScale;
+
+        // Boost opacity during hover
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1.0f; // Full opacity when hovered
+        }
+
+        if (hoverGlow != null) hoverGlow.enabled = true;
+
+        // Mark hover effect as active (prevents carousel from overriding scale/alpha)
+        hoverEffectActive = true;
+
+        CancelHoverTweens();
+
+        // Apply hover scale (relative to current scale, not original)
+        Vector3 targetScale = scaleBeforeHover * hoverScale;
+        hoverTweenId = LeanTween.scale(gameObject, targetScale, hoverAnimDuration)
+            .setEaseOutBack()
+            .id;
+
+        hoverDelayCoroutine = null;
+    }
+
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (!canvasGroup.interactable) return;
-        if (isFlying) return;
+        // Debug: Log all click attempts to diagnose delay issues
+        Debug.Log($"[CardVisual] OnPointerClick on '{cardData?.Name ?? "null"}' - interactable={canvasGroup?.interactable}, isFlying={isFlying}");
+
+        if (!canvasGroup.interactable)
+        {
+            Debug.Log($"[CardVisual] Click BLOCKED - card not interactable");
+            return;
+        }
+        if (isFlying)
+        {
+            Debug.Log($"[CardVisual] Click BLOCKED - card is flying");
+            return;
+        }
 
         OnCardClicked?.Invoke(this);
 
@@ -353,6 +444,60 @@ public void SetUseInternalFlightScaling(bool enabled)
     {
         canvasGroup.interactable = interactable;
         canvasGroup.alpha = interactable ? 1f : 0.5f;
+    }
+
+    /// <summary>
+    /// Checks if this card can be played on the current battlefield.
+    /// Returns false if the card's UnitType is blocked (e.g., Air on GroundOnly).
+    /// </summary>
+    public bool IsPlayableOnBattlefield()
+    {
+        if (cardData == null) return true;
+        return Battlefield.IsTypeAllowed(cardData.Type);
+    }
+
+    /// <summary>
+    /// Updates the card visual to show it's blocked by the battlefield.
+    /// Call this when displaying cards in hand on battlefields with restrictions.
+    /// </summary>
+    public void UpdateBattlefieldRestrictionVisual()
+    {
+        if (cardData == null) return;
+        if (canvasGroup == null) return; // Guard against missing CanvasGroup
+
+        bool isBlocked = !Battlefield.IsTypeAllowed(cardData.Type);
+
+        if (isBlocked)
+        {
+            // Gray out the card and make it non-interactable
+            canvasGroup.alpha = 0.4f;
+            canvasGroup.interactable = false;
+
+            // Optional: Add a visual indicator (could be a lock icon overlay)
+            // For now, the grayed-out appearance indicates it's blocked
+        }
+        else
+        {
+            // Restore normal appearance
+            canvasGroup.alpha = 1f;
+            canvasGroup.interactable = true;
+        }
+    }
+
+    /// <summary>
+    /// Gets the tooltip text explaining why a card is blocked (if blocked).
+    /// Returns null if card is playable.
+    /// </summary>
+    public string GetBlockedReason()
+    {
+        if (cardData == null) return null;
+
+        if (!Battlefield.IsTypeAllowed(cardData.Type))
+        {
+            return $"{cardData.Type} units not available on this battlefield";
+        }
+
+        return null;
     }
 
     private void CancelHoverTweens()

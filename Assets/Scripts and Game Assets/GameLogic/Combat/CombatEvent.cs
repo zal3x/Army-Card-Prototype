@@ -44,7 +44,11 @@ public class CombatEvent
 
     // Extra info
     public RowType? Row;          // where it happened (Front/Middle/Back)
+    public UnitType? DamageBucket; // which UnitType bucket the damage came from (Infantry/Vehicle/Air/Ranged)
     public int Amount;            // damage amount or moved count, etc.
+
+    // Flags for special damage types
+    public bool IsCounterDamage;  // true if this damage is from a counterattack
 
     // Useful for UI text later; for now you can ignore it
     public string Note;

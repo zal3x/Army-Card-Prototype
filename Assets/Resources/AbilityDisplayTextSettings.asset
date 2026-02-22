@@ -1,0 +1,70 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b340cb96fe57d4550a450d533b1686dd, type: 3}
+  m_Name: AbilityDisplayTextSettings
+  m_EditorClassIdentifier: Assembly-CSharp::AbilityDisplaySettings
+  abilityDisplays:
+  - abilityType: 1
+    displayText: x2 ATK
+    textColor: {r: 0.3, g: 1, b: 0.3, a: 1}
+    fontSizeMultiplier: 1.1
+  - abilityType: 2
+    displayText: x2 ATK
+    textColor: {r: 0.3, g: 1, b: 0.3, a: 1}
+    fontSizeMultiplier: 1.1
+  - abilityType: 3
+    displayText: x2 ATK
+    textColor: {r: 0.3, g: 1, b: 0.3, a: 1}
+    fontSizeMultiplier: 1.1
+  - abilityType: 4
+    displayText: Direct Attack
+    textColor: {r: 0.3, g: 1, b: 0.3, a: 1}
+    fontSizeMultiplier: 1.1
+  - abilityType: 5
+    displayText: Double Health
+    textColor: {r: 0.745283, g: 0, b: 0.09280749, a: 1}
+    fontSizeMultiplier: 1.1
+  - abilityType: 6
+    displayText: Armor Piercer
+    textColor: {r: 0, g: 1, b: 0.9400835, a: 1}
+    fontSizeMultiplier: 1.1
+  - abilityType: 7
+    displayText: Counter
+    textColor: {r: 1, g: 0, b: 0.90136623, a: 1}
+    fontSizeMultiplier: 1.1
+  - abilityType: 8
+    displayText: MONEY MONEY
+    textColor: {r: 1, g: 0.9618751, b: 0, a: 1}
+    fontSizeMultiplier: 1.1
+  - abilityType: 9
+    displayText: REINFORCEMENTS
+    textColor: {r: 0, g: 0, b: 0, a: 1}
+    fontSizeMultiplier: 1.1
+  - abilityType: 10
+    displayText: BYE BYE
+    textColor: {r: 1, g: 0.34837234, b: 0, a: 1}
+    fontSizeMultiplier: 1.1
+  - abilityType: 11
+    displayText: NA NA NA NA NA
+    textColor: {r: 0.04431629, g: 1, b: 0, a: 1}
+    fontSizeMultiplier: 1.1
+  - abilityType: 12
+    displayText: TARGET MARKED
+    textColor: {r: 1, g: 0, b: 0.018100739, a: 1}
+    fontSizeMultiplier: 1.1
+  - abilityType: 13
+    displayText: Commander Bonus
+    textColor: {r: 0, g: 0, b: 0, a: 1}
+    fontSizeMultiplier: 1.1
+  defaultDisplayText: ABILITY
+  defaultColor: {r: 0.3, g: 1, b: 0.3, a: 1}
+  defaultFontSizeMultiplier: 1.1

@@ -17,6 +17,7 @@ MonoBehaviour:
   cost: 0
   hp: 0
   atk: 0
+  rarity: 0
   ability: 0
   countsAsVehicle: 0
   abilityParams:
@@ -32,4 +33,5 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: 1605892796355376851, guid: 0b7841c1d12534e7cb733661c23824c2, type: 3}
-  abilityDescription: 
+  abilityDescription: All friendly infantry absorb 50% more damage this battle
+  Definition: {fileID: 0}

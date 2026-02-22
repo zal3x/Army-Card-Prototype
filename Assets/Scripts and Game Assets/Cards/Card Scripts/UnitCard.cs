@@ -115,6 +115,11 @@ Definition = definition;
     /// <summary>
     /// Creates a runtime Unit instance from this card.
     /// IMPORTANT: Special cards should NOT call this.
+    ///
+    /// ABILITY EFFECTS APPLIED HERE:
+    /// - Armored (ReduceIncomingDamage50Percent): HP is doubled.
+    ///   This replaces the complex damage reduction logic - now the unit
+    ///   simply has more HP and takes damage normally.
     /// </summary>
     public Unit CreateUnitInstance()
     {
@@ -124,10 +129,20 @@ Definition = definition;
             return null;
         }
 
+        int finalHP = BaseHP;
+
+        // ARMORED: Double HP instead of complex damage reduction
+        // This makes the effect visible on the health bar and simplifies combat
+        if (Ability == UnitAbilityType.ReduceIncomingDamage50Percent)
+        {
+            finalHP = BaseHP * 2;
+            Debug.Log($"[ARMORED] '{Name}' HP doubled: {BaseHP} -> {finalHP}");
+        }
+
         return new Unit(
             Name,
             Type,
-            BaseHP,
+            finalHP,
             BaseATK,
             PreemptiveStrike,
             Ability,

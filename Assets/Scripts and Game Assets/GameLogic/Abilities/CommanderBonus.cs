@@ -17,14 +17,14 @@ public class CommanderBonus : MonoBehaviour
         None,
 
         // Examples from your list
-        Albert,
+        Gruff,
         Hank,
-        Roy,
-        Geralt,
-        Aelin,
-        Selena,
+        Leo,
+        Nicholas,
+        Alex,
+        Ashley,
         Roxanne,
-        Terra,
+        Seth,
         Aqua
     }
 
@@ -48,12 +48,12 @@ public class CommanderBonus : MonoBehaviour
 
     /// <summary>
     /// Returns cost delta to apply at time of purchase / affordability checks.
-    /// (Roy: all units cost -1 forever)
+    /// (Leo: all units cost -1 forever)
     /// </summary>
     public static Func<Player, UnitCard, int> GetCostDelta;
 
     /// <summary>
-    /// Optional: damage-taken multiplier vs an attacker unit type (Geralt).
+    /// Optional: damage-taken multiplier vs an attacker unit type (Nicholas).
     /// NOTE: Your current "stream damage" model doesn't carry per-source-type info,
     /// so you'll need an integration point if you later track type-specific damage sources.
     /// </summary>
@@ -121,8 +121,25 @@ public static CommanderBonus Instance { get; private set; }
     }
 private CommanderId GetCommanderId(Player p)
 {
-    if (p == null) return CommanderId.None;
-    return commanderByPlayer.TryGetValue(p, out var id) ? id : CommanderId.None;
+    if (p == null)
+    {
+        Debug.LogWarning("[COMMANDER] GetCommanderId called with NULL player!");
+        return CommanderId.None;
+    }
+
+    bool found = commanderByPlayer.TryGetValue(p, out var id);
+    if (!found)
+    {
+        Debug.LogWarning($"[COMMANDER] GetCommanderId: Player '{p.Name}' (hash={p.GetHashCode()}) NOT found in dictionary! Dictionary has {commanderByPlayer.Count} entries.");
+        // Log all keys in dictionary for debugging
+        foreach (var kvp in commanderByPlayer)
+        {
+            Debug.Log($"[COMMANDER]   - Dictionary contains: '{kvp.Key?.Name}' (hash={kvp.Key?.GetHashCode()}) -> {kvp.Value}");
+        }
+        return CommanderId.None;
+    }
+
+    return id;
 }
 public void ApplyPermanentBonusesToCards(Player owner, List<UnitCard> cards)
 {
@@ -142,20 +159,62 @@ public void ApplyPermanentBonusesToCard(Player owner, UnitCard card)
 
     var cmd = GetCommanderId(owner);
 
-    // Roy: all units cost 1 less gold forever (not specials)
-    if (cmd == CommanderId.Roy && !card.IsSpecialCard)
+    // DEBUG: Log what commander was found for this player
+    Debug.Log($"[COMMANDER BONUS] ApplyPermanentBonusesToCard: Card='{card.Name}', Owner='{owner?.Name}', CommanderId={cmd}, IsSpecialCard={card.IsSpecialCard}, BaseATK={card.BaseATK}, BaseHP={card.BaseHP}");
+
+    // Leo: all units cost 1 less gold forever (not specials)
+    if (cmd == CommanderId.Leo && !card.IsSpecialCard)
     {
+        int oldCost = card.Cost;
         card.Cost = Mathf.Max(0, card.Cost - 1);
+        Debug.Log($"[COMMANDER BONUS] Leo cost reduction: {oldCost} -> {card.Cost}");
     }
 
-    // Albert: all units 130% ATK, 80% HP (not specials)
-    if (cmd == CommanderId.Albert && !card.IsSpecialCard)
+    // Gruff: all units 130% ATK, 80% HP (not specials)
+    if (cmd == CommanderId.Gruff && !card.IsSpecialCard)
     {
+        int oldATK = card.BaseATK;
+        int oldHP = card.BaseHP;
         card.BaseATK = Mathf.RoundToInt(card.BaseATK * 1.30f);
         card.BaseHP  = Mathf.RoundToInt(card.BaseHP * 0.80f);
+        Debug.Log($"[COMMANDER BONUS] Gruff applied: ATK {oldATK} -> {card.BaseATK}, HP {oldHP} -> {card.BaseHP}");
     }
 
-    // (We can add Aelin/Selena/Roxanne/Hank next once this test works)
+    // Alex: Infantry +20% ATK/HP
+    if (cmd == CommanderId.Alex && !card.IsSpecialCard && card.Type == UnitType.Infantry)
+    {
+        int oldATK = card.BaseATK;
+        int oldHP = card.BaseHP;
+        card.BaseATK = Mathf.RoundToInt(card.BaseATK * 1.20f);
+        card.BaseHP  = Mathf.RoundToInt(card.BaseHP * 1.20f);
+        Debug.Log($"[COMMANDER BONUS] Alex (Infantry) applied: ATK {oldATK} -> {card.BaseATK}, HP {oldHP} -> {card.BaseHP}");
+    }
+
+    // Ashley: Ranged +20% ATK
+    if (cmd == CommanderId.Ashley && !card.IsSpecialCard && card.Type == UnitType.Ranged)
+    {
+        int oldATK = card.BaseATK;
+        card.BaseATK = Mathf.RoundToInt(card.BaseATK * 1.20f);
+        Debug.Log($"[COMMANDER BONUS] Ashley (Ranged) applied: ATK {oldATK} -> {card.BaseATK}");
+    }
+
+    // Roxanne: Air +10% ATK/HP
+    if (cmd == CommanderId.Roxanne && !card.IsSpecialCard && card.Type == UnitType.Air)
+    {
+        int oldATK = card.BaseATK;
+        int oldHP = card.BaseHP;
+        card.BaseATK = Mathf.RoundToInt(card.BaseATK * 1.10f);
+        card.BaseHP  = Mathf.RoundToInt(card.BaseHP * 1.10f);
+        Debug.Log($"[COMMANDER BONUS] Roxanne (Air) applied: ATK {oldATK} -> {card.BaseATK}, HP {oldHP} -> {card.BaseHP}");
+    }
+
+    // Hank: Vehicle +10% ATK
+    if (cmd == CommanderId.Hank && !card.IsSpecialCard && card.Type == UnitType.Vehicle)
+    {
+        int oldATK = card.BaseATK;
+        card.BaseATK = Mathf.RoundToInt(card.BaseATK * 1.10f);
+        Debug.Log($"[COMMANDER BONUS] Hank (Vehicle) applied: ATK {oldATK} -> {card.BaseATK}");
+    }
 }
 
 private void HandleTerrainChanged(Battlefield.TerrainType t)
@@ -182,9 +241,13 @@ private void HandleWeatherChanged(Battlefield.WeatherType w)
     /// </summary>
     public void SetCommanderForPlayer(Player player, CommanderId commander)
     {
-        if (player == null) return;
+        if (player == null)
+        {
+            Debug.LogError("[COMMANDER] SetCommanderForPlayer called with NULL player!");
+            return;
+        }
         commanderByPlayer[player] = commander;
-        Debug.Log($"[COMMANDER] {player.Name} set commander = {commander}");
+        Debug.Log($"[COMMANDER] SetCommanderForPlayer: {player.Name} (hash={player.GetHashCode()}) set to {commander}. Dictionary now has {commanderByPlayer.Count} entries.");
     }
 
     /// <summary>
@@ -240,19 +303,19 @@ public EffectiveCardStats GetEffectiveStatsForCard(UnitCard card)
 
     var cmd = GetCommanderId(card.Owner);
 
-    // Conditional (battlefield-dependent) bonuses: Terra/Aqua
+    // Conditional (battlefield-dependent) bonuses: Seth/Aqua
     // Only active during battle context
     if (IsInBattleContext && !card.IsSpecialCard)
     {
-        if (cmd == CommanderId.Terra && cachedTerrain == Battlefield.TerrainType.Roads)
+        if (cmd == CommanderId.Seth&& cachedTerrain == Battlefield.TerrainType.Roads)
             atk = Mathf.RoundToInt(atk * 1.50f);
 
         if (cmd == CommanderId.Aqua && cachedWeather == Battlefield.WeatherType.Rain)
             atk = Mathf.RoundToInt(atk * 1.50f);
     }
 
-    // Geralt is not stat-changing, but useful for tooltip later
-    if (cmd == CommanderId.Geralt)
+    // Nicholas is not stat-changing, but useful for tooltip later
+    if (cmd == CommanderId.Nicholas)
         dmgTakenVsRanged = 0.80f;
 
     return new EffectiveCardStats
@@ -280,12 +343,12 @@ public EffectiveCardStats GetEffectiveStatsForCard(Player owner, UnitCardDefinit
     // Permanent (always-on) commander adjustments
     switch (cmd)
     {
-        case CommanderId.Roy:
+        case CommanderId.Leo:
             // Units cost -1 forever (leave specials unchanged)
             if (!def.isSpecialCard) cost = Mathf.Max(0, cost - 1);
             break;
 
-        case CommanderId.Albert:
+        case CommanderId.Gruff:
             // All units: 130% ATK, 80% HP
             if (!def.isSpecialCard)
             {
@@ -294,7 +357,7 @@ public EffectiveCardStats GetEffectiveStatsForCard(Player owner, UnitCardDefinit
             }
             break;
 
-        case CommanderId.Aelin:
+        case CommanderId.Alex:
             // Infantry: +20% ATK/HP
             if (!def.isSpecialCard && def.type == UnitType.Infantry)
             {
@@ -303,7 +366,7 @@ public EffectiveCardStats GetEffectiveStatsForCard(Player owner, UnitCardDefinit
             }
             break;
 
-        case CommanderId.Selena:
+        case CommanderId.Ashley:
             // Ranged: +20% ATK
             if (!def.isSpecialCard && def.type == UnitType.Ranged)
                 atk = Mathf.RoundToInt(atk * 1.20f);
@@ -325,7 +388,7 @@ public EffectiveCardStats GetEffectiveStatsForCard(Player owner, UnitCardDefinit
                 atk = Mathf.RoundToInt(atk * 1.10f);
             break;
 
-        case CommanderId.Geralt:
+        case CommanderId.Nicholas:
             // Doesn't change card numbers; changes damage taken vs ranged
             dmgTakenVsRanged = 0.80f;
             break;
@@ -335,7 +398,7 @@ public EffectiveCardStats GetEffectiveStatsForCard(Player owner, UnitCardDefinit
     // (You can later gate this with an IsInBattleContext bool if you want)
     if (Battlefield.Instance != null && !def.isSpecialCard)
     {
-        if (cmd == CommanderId.Terra && cachedTerrain == Battlefield.TerrainType.Roads)
+        if (cmd == CommanderId.Seth&& cachedTerrain == Battlefield.TerrainType.Roads)
             atk = Mathf.RoundToInt(atk * 1.50f);
 
         if (cmd == CommanderId.Aqua && cachedWeather == Battlefield.WeatherType.Rain)
@@ -395,7 +458,7 @@ public void ExitBattleContext()
 
         switch (cmd)
         {
-            case CommanderId.Albert:
+            case CommanderId.Gruff:
                 // All units 130% ATK
                 m *= 1.30f;
                 break;
@@ -407,13 +470,13 @@ public void ExitBattleContext()
                     m *= 1.10f;
                 break;
 
-            case CommanderId.Aelin:
+            case CommanderId.Alex:
                 // Infantry gain 20% hp and attack
                 if (unit.Type == UnitType.Infantry)
                     m *= 1.20f;
                 break;
 
-            case CommanderId.Selena:
+            case CommanderId.Ashley:
                 // Ranged units gain 20% atk
                 if (unit.Type == UnitType.Ranged)
                     m *= 1.20f;
@@ -436,7 +499,7 @@ public void ExitBattleContext()
 
         switch (cmd)
         {
-            case CommanderId.Terra:
+            case CommanderId.Seth:
                 // All units get 50% attack on Battlefield type "Roads"
                 if (cachedTerrain == Battlefield.TerrainType.Roads)
                     m *= 1.50f;
@@ -459,12 +522,12 @@ public void ExitBattleContext()
 
         switch (cmd)
         {
-            case CommanderId.Albert:
+            case CommanderId.Gruff:
                 // All units only 80% HP
                 m *= 0.80f;
                 break;
 
-            case CommanderId.Aelin:
+            case CommanderId.Alex:
                 // Infantry +20% HP
                 if (unit.Type == UnitType.Infantry)
                     m *= 1.20f;
@@ -484,8 +547,8 @@ public void ExitBattleContext()
     {
         var cmd = GetCommander(owner);
 
-        // Roy: All units cost 1 less gold, forever
-        if (cmd == CommanderId.Roy)
+        // Leo: All units cost 1 less gold, forever
+        if (cmd == CommanderId.Leo)
         {
             // Usually you don't want special/spell cards discounted unless you explicitly do.
             // If you DO want special cards discounted too, remove this guard.
@@ -502,8 +565,8 @@ private float ComputeDamageTakenMultiplier(Player defender, UnitType attackerTyp
 
     var cmd = GetCommanderId(defender);
 
-    // Geralt: take 20% less damage from Ranged attackers
-    if (cmd == CommanderId.Geralt && attackerType == UnitType.Ranged)
+    // Nicholas: take 20% less damage from Ranged attackers
+    if (cmd == CommanderId.Nicholas && attackerType == UnitType.Ranged)
         return 0.80f;
 
     return 1f;

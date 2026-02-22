@@ -81,6 +81,12 @@ public static class CombatResolver
         EmitTargetMarkedEvents(a, report, alsoDebugLog);
         EmitTargetMarkedEvents(b, report, alsoDebugLog);
 
+        // Store starting unit counts BEFORE any combat damage
+        // Used by playback to know when a row is completely wiped
+        var countsA = CountUnitsByType(a);
+        var countsB = CountUnitsByType(b);
+        report.SetStartingCounts(countsA, countsB);
+
         // PHASE 1: Pre-emptive strikes (simultaneous)
         ResolvePreemptivePhase(a, b, report, alsoDebugLog);
 
@@ -100,6 +106,10 @@ int totalAtkB =
     atkBucketsB[UnitType.Vehicle] +
     atkBucketsB[UnitType.Air] +
     atkBucketsB[UnitType.Ranged];
+
+        // Store firepower totals in report for visual playback ordering
+        // (Lower firepower player's units explode first per row)
+        report.SetFirepower(totalAtkA, totalAtkB);
 
         // Navy Seal bypass damage (goes directly to commander)
         ApplyBypassDamage(a, b, report, alsoDebugLog);
@@ -125,29 +135,31 @@ int totalAtkB =
         bool aHasArmorPiercing = HasAnyAliveAbility(a, UnitAbilityType.ArmorPiercing);
         bool bHasArmorPiercing = HasAnyAliveAbility(b, UnitAbilityType.ArmorPiercing);
 
-        // Apply main damage streams (returns counter damage)
-       int counterBackToA = ApplyDamageBucketsToEntireArmy(
-    attacker: a,
-    defender: b,
-    buckets: atkBucketsA,
-    report: report,
-    alsoDebugLog: alsoDebugLog,
-    attackerHasArmorPiercing: aHasArmorPiercing,
-    allowCounterattack: true
-);
+        // Apply main damage streams (returns counter damage and leftover damage)
+        // leftoverToB = damage that overflowed past all of B's units (from A's attack)
+        // leftoverToA = damage that overflowed past all of A's units (from B's attack)
+        var (counterBackToA, leftoverToB) = ApplyDamageBucketsToEntireArmy(
+            attacker: a,
+            defender: b,
+            buckets: atkBucketsA,
+            report: report,
+            alsoDebugLog: alsoDebugLog,
+            attackerHasArmorPiercing: aHasArmorPiercing,
+            allowCounterattack: true
+        );
 
-int counterBackToB = ApplyDamageBucketsToEntireArmy(
-    attacker: b,
-    defender: a,
-    buckets: atkBucketsB,
-    report: report,
-    alsoDebugLog: alsoDebugLog,
-    attackerHasArmorPiercing: bHasArmorPiercing,
-    allowCounterattack: true
-);
-
+        var (counterBackToB, leftoverToA) = ApplyDamageBucketsToEntireArmy(
+            attacker: b,
+            defender: a,
+            buckets: atkBucketsB,
+            report: report,
+            alsoDebugLog: alsoDebugLog,
+            attackerHasArmorPiercing: bHasArmorPiercing,
+            allowCounterattack: true
+        );
 
         // Apply counterattack streams (no further counters to prevent infinite loops)
+        // Counter damage can also overflow to commander
         if (counterBackToA > 0)
         {
             AddEvent(report, new CombatEvent
@@ -159,15 +171,17 @@ int counterBackToB = ApplyDamageBucketsToEntireArmy(
                 Note = $"[COUNTER] Total counter damage back to {a.Name}: {counterBackToA}"
             }, alsoDebugLog);
 
-            ApplyDamageToEntireArmy(
+            var (_, counterLeftoverToA) = ApplyDamageToEntireArmy(
                 attacker: b,
                 defender: a,
                 damage: counterBackToA,
                 report: report,
                 alsoDebugLog: alsoDebugLog,
                 attackerHasArmorPiercing: false,
-                allowCounterattack: false // Prevent counter-counter loops
+                allowCounterattack: false, // Prevent counter-counter loops
+                isCounterDamage: true  // Flag for counterattack visual effects
             );
+            leftoverToA += counterLeftoverToA;
         }
 
         if (counterBackToB > 0)
@@ -181,20 +195,35 @@ int counterBackToB = ApplyDamageBucketsToEntireArmy(
                 Note = $"[COUNTER] Total counter damage back to {b.Name}: {counterBackToB}"
             }, alsoDebugLog);
 
-            ApplyDamageToEntireArmy(
+            var (_, counterLeftoverToB) = ApplyDamageToEntireArmy(
                 attacker: a,
                 defender: b,
                 damage: counterBackToB,
                 report: report,
                 alsoDebugLog: alsoDebugLog,
                 attackerHasArmorPiercing: false,
-                allowCounterattack: false // Prevent counter-counter loops
+                allowCounterattack: false, // Prevent counter-counter loops
+                isCounterDamage: true  // Flag for counterattack visual effects
             );
+            leftoverToB += counterLeftoverToB;
         }
 
         // PHASE 3: Cleanup dead units
         CleanupDeadUnits(a, report, alsoDebugLog);
         CleanupDeadUnits(b, report, alsoDebugLog);
+
+        // UNIFIED HEALTH SYSTEM: Recalculate max HP based on surviving units
+        // This shrinks the health bar to reflect only living units
+        a.RecalculateCommanderMaxHP();
+        b.RecalculateCommanderMaxHP();
+
+        // PHASE 4: Firepower Resolution
+        // Commander damage is based on leftover damage that overflowed past all enemy units:
+        // - leftoverToB = damage A dealt that overflowed past all of B's units
+        // - leftoverToA = damage B dealt that overflowed past all of A's units
+        // - Only the player with HIGHER leftover deals commander damage
+        // - Commander damage = Winner's leftover - Loser's leftover
+        ResolveFirepowerDamage(a, b, leftoverToB, leftoverToA, report, alsoDebugLog);
 
         // Log combat end
         AddEvent(report, new CombatEvent
@@ -283,6 +312,7 @@ int counterBackToB = ApplyDamageBucketsToEntireArmy(
         Dictionary<Unit, int> dmgByTarget = new Dictionary<Unit, int>();
         Dictionary<Unit, Player> ownerByTarget = new Dictionary<Unit, Player>();
         Dictionary<Unit, RowType?> rowByTarget = new Dictionary<Unit, RowType?>();
+        Dictionary<Unit, Unit> sourceByTarget = new Dictionary<Unit, Unit>();  // Track first attacker per target
 
         foreach (var s in strikes)
         {
@@ -293,6 +323,7 @@ int counterBackToB = ApplyDamageBucketsToEntireArmy(
                 dmgByTarget[s.Target] = 0;
                 ownerByTarget[s.Target] = s.DefenderOwner;
                 rowByTarget[s.Target] = s.TargetRow;
+                sourceByTarget[s.Target] = s.Attacker;  // Remember first attacker for visual effects
             }
 
             dmgByTarget[s.Target] += s.Damage;
@@ -326,10 +357,20 @@ int counterBackToB = ApplyDamageBucketsToEntireArmy(
             target.HP = Mathf.Max(0, target.HP - dr.AppliedToHP);
             int afterHP = target.HP;
 
+            // UNIFIED HEALTH SYSTEM: Sync damage to commander HP
+            if (dr.AppliedToHP > 0)
+            {
+                targetOwner.OnUnitDamaged(dr.AppliedToHP);
+            }
+
+            // Get the source unit for attack effects (first attacker against this target)
+            Unit sourceUnit = sourceByTarget.ContainsKey(target) ? sourceByTarget[target] : null;
+
             AddEvent(report, new CombatEvent
             {
                 Type = CombatEventType.DamageAppliedToUnit,
                 TargetPlayer = targetOwner,
+                SourceUnit = sourceUnit,  // Add source unit for attack effects
                 TargetUnit = target,
                 Row = targetRow,
                 Amount = dr.AppliedToHP,
@@ -346,6 +387,22 @@ int counterBackToB = ApplyDamageBucketsToEntireArmy(
                     Row = targetRow,
                     Note = $"{targetOwner.Name}'s {target.Name} destroyed in pre-emptive phase ({targetRow})"
                 }, alsoDebugLog);
+
+                // SALVAGE WRECKAGE: Award gold when destroying enemy vehicles in preemptive phase
+                // Find the attacker owner from our pending strikes
+                Player attackerOwner = null;
+                foreach (var s in strikes)
+                {
+                    if (s.Target == target)
+                    {
+                        attackerOwner = s.AttackerOwner;
+                        break;
+                    }
+                }
+                if (target.Type == UnitType.Vehicle && attackerOwner != null && DoctrineSystem.Instance != null)
+                {
+                    DoctrineSystem.Instance.OnVehicleDestroyed(attackerOwner, target);
+                }
             }
         }
 
@@ -496,6 +553,40 @@ private static void AddRowBuckets(
         if (!Mathf.Approximately(cmdMult, 1f))
             atk = Mathf.RoundToInt(atk * cmdMult);
 
+        // Perk ATK bonuses (Stopping Power, Piercing, Explosives, Heads Up)
+        int perkBonus = (PerkSystem.GetTypeAtkBonus != null)
+            ? PerkSystem.GetTypeAtkBonus(owner, u.Type)
+            : 0;
+        if (perkBonus > 0)
+        {
+            atk += perkBonus;
+            if (alsoDebugLog)
+                Debug.Log($"[PERK] {u.Name} +{perkBonus} ATK from perk (now {atk})");
+        }
+
+        // Doctrine ATK bonuses (Close Combat, Ranged Warrior, Iron Skin, Death from Above)
+        int doctrineBonus = (DoctrineSystem.GetTypeAtkBonus != null)
+            ? DoctrineSystem.GetTypeAtkBonus(owner, u.Type)
+            : 0;
+        if (doctrineBonus > 0)
+        {
+            atk += doctrineBonus;
+            if (alsoDebugLog)
+                Debug.Log($"[DOCTRINE] {u.Name} +{doctrineBonus} ATK from doctrine (now {atk})");
+        }
+
+        // Combined Arms doctrine bonus (vehicles +ATK when infantry present)
+        if (DoctrineSystem.Instance != null)
+        {
+            int combinedArmsBonus = DoctrineSystem.Instance.GetCombinedArmsBonus(owner, u.Type);
+            if (combinedArmsBonus > 0)
+            {
+                atk += combinedArmsBonus;
+                if (alsoDebugLog)
+                    Debug.Log($"[DOCTRINE] {u.Name} +{combinedArmsBonus} ATK from Combined Arms (now {atk})");
+            }
+        }
+
         buckets[u.Type] += atk;
     }
 }
@@ -503,18 +594,20 @@ private static void AddRowBuckets(
 /// <summary>
 /// Applies multiple damage streams (one per UnitType), allowing defender commander to modify damage taken
 /// by attacker type (Geralt vs Ranged).
-/// Returns total counter-stream damage back to attacker.
+/// Returns tuple of (total counter-stream damage, total leftover damage that overflowed).
 /// </summary>
-private static int ApplyDamageBucketsToEntireArmy(
+private static (int counterTotal, int leftoverTotal) ApplyDamageBucketsToEntireArmy(
     Player attacker,
     Player defender,
     Dictionary<UnitType, int> buckets,
     CombatReport report,
     bool alsoDebugLog,
     bool attackerHasArmorPiercing,
-    bool allowCounterattack)
+    bool allowCounterattack,
+    bool isCounterDamage = false)
 {
     int counterTotal = 0;
+    int leftoverTotal = 0;
 
     // Deterministic order
     UnitType[] order = { UnitType.Infantry, UnitType.Vehicle, UnitType.Air, UnitType.Ranged };
@@ -530,35 +623,38 @@ private static int ApplyDamageBucketsToEntireArmy(
             : 1f;
 
         int adjusted = Mathf.RoundToInt(dmg * takenMult);
-if (report != null && !Mathf.Approximately(takenMult, 1f))
-{
-    AddEvent(report, new CombatEvent
-    {
-        Type = CombatEventType.DebugNote,
-        SourcePlayer = attacker,
-        TargetPlayer = defender,
-        Amount = adjusted,
-        Note = $"{defender.Name} commander reduced {t} damage: {dmg} -> {adjusted} (x{takenMult:0.##})"
-    }, alsoDebugLog);
-}
+        if (report != null && !Mathf.Approximately(takenMult, 1f))
+        {
+            AddEvent(report, new CombatEvent
+            {
+                Type = CombatEventType.DebugNote,
+                SourcePlayer = attacker,
+                TargetPlayer = defender,
+                Amount = adjusted,
+                Note = $"{defender.Name} commander reduced {t} damage: {dmg} -> {adjusted} (x{takenMult:0.##})"
+            }, alsoDebugLog);
+        }
 
         if (alsoDebugLog)
             Debug.Log($"[TYPE STREAM] {attacker.Name}->{defender.Name} type={t} base={dmg} mult={takenMult:0.###} adjusted={adjusted}");
 
-        int counter = ApplyDamageToEntireArmy(
+        var (counter, leftover) = ApplyDamageToEntireArmy(
             attacker: attacker,
             defender: defender,
             damage: adjusted,
             report: report,
             alsoDebugLog: alsoDebugLog,
             attackerHasArmorPiercing: attackerHasArmorPiercing,
-            allowCounterattack: allowCounterattack
+            allowCounterattack: allowCounterattack,
+            damageBucketType: t,
+            isCounterDamage: isCounterDamage
         );
 
         counterTotal += counter;
+        leftoverTotal += leftover;
     }
 
-    return counterTotal;
+    return (counterTotal, leftoverTotal);
 }
 
     // ========================================
@@ -733,30 +829,32 @@ total += atk;
 
     /// <summary>
     /// Applies damage to an entire army using the "streaming damage" model.
-    /// 
+    ///
     /// DAMAGE STREAMING:
     /// - Damage flows through rows in order: Front → Middle → Back
     /// - Each unit "absorbs" some damage from the stream
     /// - Leftover damage spills to the next unit
-    /// - Any remaining damage hits the commander
-    /// 
+    /// - Any remaining damage is tracked for Firepower resolution
+    ///
     /// TAUNT:
     /// - If defender has a TauntRowFirst unit, that row is attacked first
-    /// 
+    ///
     /// RETURNS:
-    /// Total counterattack damage to send back to the attacker
+    /// Tuple of (counterattack damage, leftover damage that overflowed past all units)
     /// </summary>
-    private static int ApplyDamageToEntireArmy(
+    private static (int counterDamage, int leftoverDamage) ApplyDamageToEntireArmy(
         Player attacker,
         Player defender,
         int damage,
         CombatReport report,
         bool alsoDebugLog,
         bool attackerHasArmorPiercing,
-        bool allowCounterattack)
+        bool allowCounterattack,
+        UnitType? damageBucketType = null,
+        bool isCounterDamage = false)
     {
         if (damage <= 0)
-            return 0;
+            return (0, 0);
 
         AddEvent(report, new CombatEvent
         {
@@ -802,29 +900,26 @@ total += atk;
                 alsoDebugLog: alsoDebugLog,
                 attackerHasArmorPiercing: attackerHasArmorPiercing,
                 allowCounterattack: allowCounterattack,
-                counterStreamBackToAttacker: ref counterStreamBackToAttacker
+                counterStreamBackToAttacker: ref counterStreamBackToAttacker,
+                damageBucketType: damageBucketType,
+                isCounterDamage: isCounterDamage
             );
         }
 
-        // Leftover damage hits commander
+        // Track leftover damage for Firepower resolution
+        // This damage overflowed past all units and will be used to calculate commander damage
         if (damage > 0)
         {
-            int before = defender.CommanderHP;
-            defender.CommanderHP = Mathf.Max(0, defender.CommanderHP - damage);
-
             AddEvent(report, new CombatEvent
             {
-                Type = CombatEventType.CommanderDamaged,
-                SourcePlayer = attacker,
+                Type = CombatEventType.DebugNote,
                 TargetPlayer = defender,
                 Amount = damage,
-                Note = $"{defender.Name} commander takes {damage} damage (HP {before}->{defender.CommanderHP})"
+                Note = $"[FIREPOWER] {damage} leftover stream damage tracked for Firepower resolution"
             }, alsoDebugLog);
-
-            damage = 0;
         }
 
-        return counterStreamBackToAttacker;
+        return (counterStreamBackToAttacker, damage);
     }
 
     /// <summary>
@@ -847,7 +942,9 @@ total += atk;
         bool alsoDebugLog,
         bool attackerHasArmorPiercing,
         bool allowCounterattack,
-        ref int counterStreamBackToAttacker)
+        ref int counterStreamBackToAttacker,
+        UnitType? damageBucketType = null,
+        bool isCounterDamage = false)
     {
         int damage = incomingDamage;
 
@@ -882,19 +979,48 @@ total += atk;
             unit.HP = Mathf.Max(0, unit.HP - dr.AppliedToHP);
             int afterHP = unit.HP;
 
+            // UNIFIED HEALTH SYSTEM: Sync damage to commander HP
+            if (dr.AppliedToHP > 0)
+            {
+                defender.OnUnitDamaged(dr.AppliedToHP);
+            }
+
             // Reduce stream by absorbed amount
             damage -= dr.AbsorbedFromStream;
+
+            // Find a representative attacking unit for visual effects
+            // Pick the first alive unit from any attacking row
+            Unit sourceUnit = null;
+            foreach (var rowKvp in attacker.Rows)
+            {
+                var attackingRow = rowKvp.Value;
+                if (attackingRow != null && attackingRow.Units != null)
+                {
+                    foreach (var u in attackingRow.Units)
+                    {
+                        if (u != null && u.IsAlive)
+                        {
+                            sourceUnit = u;
+                            break;
+                        }
+                    }
+                    if (sourceUnit != null) break;
+                }
+            }
 
             AddEvent(report, new CombatEvent
             {
                 Type = CombatEventType.DamageAppliedToUnit,
                 SourcePlayer = attacker,
                 TargetPlayer = defender,
+                SourceUnit = sourceUnit,  // Add representative source unit for attack effects
                 TargetUnit = unit,
                 Amount = dr.AppliedToHP,
                 Row = row.RowType,
-                Note = $"{defender.Name}'s {unit.Name} takes {dr.AppliedToHP} damage ({row.RowType}), HP {beforeHP}->{afterHP} (absorbed {dr.AbsorbedFromStream}, remaining stream={damage})" 
+                IsCounterDamage = isCounterDamage,  // Flag for counterattack visual effects
+                Note = $"{defender.Name}'s {unit.Name} takes {dr.AppliedToHP} damage ({row.RowType}), HP {beforeHP}->{afterHP} (absorbed {dr.AbsorbedFromStream}, remaining stream={damage})"
                        + (unit.IsMarkedTarget ? " [MARKED]" : "")  // Add MARKED indicator for playback
+                       + (isCounterDamage ? " [COUNTER]" : "")  // Add COUNTER indicator for playback
             }, alsoDebugLog);
 
             // COUNTERATTACK: Damaged but not destroyed units deal 50% back
@@ -936,6 +1062,12 @@ total += atk;
                     Row = row.RowType,
                     Note = $"{defender.Name}'s {unit.Name} destroyed ({row.RowType})"
                 }, alsoDebugLog);
+
+                // SALVAGE WRECKAGE: Award gold when destroying enemy vehicles
+                if (unit.Type == UnitType.Vehicle && DoctrineSystem.Instance != null)
+                {
+                    DoctrineSystem.Instance.OnVehicleDestroyed(attacker, unit);
+                }
             }
         }
 
@@ -945,7 +1077,8 @@ total += atk;
             TargetPlayer = defender,
             Amount = damage,
             Row = row.RowType,
-            Note = $"[ROW END] {defender.Name} {row.RowType}: remaining stream damage={damage}"
+            DamageBucket = damageBucketType,
+            Note = $"[ROW END] {defender.Name} {row.RowType} (bucket={damageBucketType}): remaining stream damage={damage}"
         }, alsoDebugLog);
 
         return damage;
@@ -983,6 +1116,18 @@ total += atk;
     /// - Armor Piercing completely disables armor reduction (no partial effect)
     /// - Tank overwhelm is binary: either reduced damage OR instant death
     /// </summary>
+    /// <summary>
+    /// SIMPLIFIED DAMAGE RESOLUTION
+    ///
+    /// Previous complex behaviors have been replaced with visible HP changes:
+    /// - ARMORED (ReduceIncomingDamage50Percent): HP is doubled at unit creation
+    /// - MARKED (IsMarkedTarget): HP is halved when marked during buy phase
+    ///
+    /// Now all units take damage using simple 1:1 stream-to-HP ratio.
+    /// The only special handling remaining is:
+    /// - EMP: Disables vehicle abilities
+    /// - TRENCHES: Special card that protects infantry
+    /// </summary>
     private static DamageResult ResolveIncomingDamageForUnit(
         Unit targetUnit,
         int streamIncoming,
@@ -993,54 +1138,47 @@ total += atk;
         bool attackerHasArmorPiercing)
     {
         int hp = targetUnit.HP;
+
         // ========================================
-// SPECIAL EFFECT: EMP disables VEHICLE abilities this round
-// ========================================
-UnitAbilityType effectiveAbility = targetUnit.Ability;
+        // SPECIAL EFFECT: EMP disables VEHICLE abilities this round
+        // ========================================
+        bool empActive =
+            (SpecialCards.IsEmpActiveOnPlayerThisRound != null) &&
+            SpecialCards.IsEmpActiveOnPlayerThisRound(targetOwner);
 
-bool empActive =
-    (SpecialCards.IsEmpActiveOnPlayerThisRound != null) &&
-    SpecialCards.IsEmpActiveOnPlayerThisRound(targetOwner);
+        if (empActive && targetUnit.Type == UnitType.Vehicle)
+        {
+            AddEvent(report, new CombatEvent
+            {
+                Type = CombatEventType.AbilityTriggered,
+                TargetPlayer = targetOwner,
+                TargetUnit = targetUnit,
+                Row = row,
+                Note = $"[EMP] '{targetUnit.Name}' vehicle ability disabled this round"
+            }, alsoDebugLog);
+        }
 
-if (empActive && targetUnit.Type == UnitType.Vehicle)
-{
-    effectiveAbility = UnitAbilityType.None;
-
-    AddEvent(report, new CombatEvent
-    {
-        Type = CombatEventType.AbilityTriggered,
-        TargetPlayer = targetOwner,
-        TargetUnit = targetUnit,
-        Row = row,
-        Note = $"[EMP] '{targetUnit.Name}' vehicle ability disabled this round"
-    }, alsoDebugLog);
-}
-
-
-        // DEFAULT BEHAVIOR (normal units):
+        // DEFAULT BEHAVIOR (all units including Armored and Marked):
         // - Unit absorbs up to its remaining HP from the stream
         // - Unit takes that same amount to HP (1:1 ratio)
+        //
+        // NOTE: Armored units already have 2x HP, Marked units already have 0.5x HP
+        // so no special damage math is needed here anymore.
         int absorbed = Mathf.Min(streamIncoming, hp);
         int applied = absorbed;
 
         // ========================================
-        // TARGET MARK: 2x HP damage per stream damage
+        // SPECIAL EFFECT: TRENCHES (Infantry take half HP damage)
+        // This is a special card effect, not a unit ability
         // ========================================
-        if (targetUnit.IsMarkedTarget && streamIncoming > 0)
+        bool trenchesActive =
+            (SpecialCards.HasTrenchesThisBattle != null) &&
+            SpecialCards.HasTrenchesThisBattle(targetOwner);
+
+        if (trenchesActive && targetUnit.Type == UnitType.Infantry)
         {
-            // MARKED UNIT RULE:
-            // - Takes 2x HP damage per 1 stream damage (vulnerability)
-            // - Stream is only reduced by the amount "absorbed", NOT by damage dealt
-            // 
-            // EXAMPLE: Unit has 10 HP, stream is 20
-            // - We only need 5 stream to deal 10 HP damage (5 stream × 2 = 10 HP)
-            // - Stream is reduced by 5 (not 10)
-
-            // Calculate how much stream is needed to kill this unit
-            int needStreamToKill = (hp + 1) / 2; // Ceiling division
-
-            absorbed = Mathf.Min(streamIncoming, needStreamToKill);
-            applied = Mathf.Min(hp, absorbed * 2);
+            // Trenches: Infantry absorbs all stream but takes half HP damage
+            int threshold = hp * 2;
 
             AddEvent(report, new CombatEvent
             {
@@ -1048,104 +1186,12 @@ if (empActive && targetUnit.Type == UnitType.Vehicle)
                 TargetPlayer = targetOwner,
                 TargetUnit = targetUnit,
                 Row = row,
-                Amount = applied,
-                Note = $"[TARGET] {targetOwner.Name} {row}: '{targetUnit.Name}' is MARKED -> takes 2x HP damage per stream (absorbs {absorbed}, takes {applied})"
+                Note = $"[TRENCHES] '{targetUnit.Name}' infantry protected"
             }, alsoDebugLog);
-        }
-        // ========================================
-// SPECIAL EFFECT: TRENCHES (Infantry take half HP damage but absorb like tank)
-// Whole battle effect controlled by SpecialCards.HasTrenchesThisBattle(owner)
-// ========================================
-bool trenchesActive =
-    (SpecialCards.HasTrenchesThisBattle != null) &&
-    SpecialCards.HasTrenchesThisBattle(targetOwner);
-
-if (trenchesActive && targetUnit.Type == UnitType.Infantry)
-{
-    // Same “tank armor” behavior:
-    // Threshold = 2x current HP
-    int threshold = hp * 2;
-
-    AddEvent(report, new CombatEvent
-    {
-        Type = CombatEventType.AbilityTriggered,
-        TargetPlayer = targetOwner,
-        TargetUnit = targetUnit,
-        Row = row,
-        Note = $"[TRENCHES] '{targetUnit.Name}' infantry protected (threshold={threshold})"
-    }, alsoDebugLog);
-
-    if (streamIncoming >= threshold)
-    {
-        // OVERWHELMED: unit dies but absorbs 2x HP from the stream
-        return new DamageResult
-        {
-            AbsorbedFromStream = Mathf.Min(streamIncoming, threshold),
-            AppliedToHP = hp
-        };
-    }
-    else
-    {
-        // ARMORED: absorbs normally (up to HP) but takes half HP damage
-        int trenchAbsorbed = Mathf.Min(streamIncoming, hp);
-        int trenchApplied = Mathf.RoundToInt(trenchAbsorbed * 0.5f);
-
-        // Match your tank edge-case behavior: marked multiplies final HP damage
-        if (targetUnit.IsMarkedTarget && trenchApplied > 0)
-            trenchApplied = Mathf.Min(hp, trenchApplied * 2);
-
-        return new DamageResult
-        {
-            AbsorbedFromStream = trenchAbsorbed,
-            AppliedToHP = trenchApplied
-        };
-    }
-}
-
-
-        // ========================================
-        // ARMORED TANK: Damage reduction or overwhelm
-        // ========================================
-if (effectiveAbility == UnitAbilityType.ReduceIncomingDamage50Percent)
-        {
-            // ARMOR PIERCING: Completely disables tank armor
-            if (attackerHasArmorPiercing)
-            {
-                AddEvent(report, new CombatEvent
-                {
-                    Type = CombatEventType.AbilityTriggered,
-                    TargetPlayer = targetOwner,
-                    TargetUnit = targetUnit,
-                    Row = row,
-                    Note = $"[ARMOR PIERCE] Armor reduction disabled on '{targetUnit.Name}'"
-                }, alsoDebugLog);
-
-                // Return early with default damage (no armor bonus)
-                return new DamageResult
-                {
-                    AbsorbedFromStream = absorbed,
-                    AppliedToHP = applied
-                };
-            }
-
-            // TANK ARMOR LOGIC:
-            // Tank has two states: "armored" or "overwhelmed"
-            // Threshold = 2x current HP
-
-            int threshold = hp * 2;
 
             if (streamIncoming >= threshold)
             {
-                // OVERWHELMED STATE:
-                // - Tank dies instantly (takes full HP damage)
-                // - BUT it absorbs a big chunk from stream (2x HP)
-                // 
-                // EXAMPLE: Tank has 12 HP, stream is 30
-                // - Threshold = 24
-                // - Stream (30) >= threshold (24) → overwhelmed
-                // - Tank dies (takes 12 HP damage)
-                // - Stream is reduced by 24 (not 12)
-
+                // OVERWHELMED: unit dies but absorbs 2x HP from the stream
                 return new DamageResult
                 {
                     AbsorbedFromStream = Mathf.Min(streamIncoming, threshold),
@@ -1154,33 +1200,20 @@ if (effectiveAbility == UnitAbilityType.ReduceIncomingDamage50Percent)
             }
             else
             {
-                // ARMORED STATE:
-                // - Tank takes HALF damage to HP
-                // - BUT still absorbs full amount from stream
-                // 
-                // EXAMPLE: Tank has 12 HP, stream is 10
-                // - Threshold = 24
-                // - Stream (10) < threshold (24) → armored
-                // - Tank absorbs 10 from stream
-                // - Tank takes 5 HP damage (10 × 50%)
-
-                int tankAbsorbed = Mathf.Min(streamIncoming, hp);
-                int tankApplied = Mathf.RoundToInt(tankAbsorbed * 0.5f);
-
-                // EDGE CASE: Marked tank still gets 2x HP damage multiplier
-                // (even though it's armored, the mark overrides the reduction)
-                if (targetUnit.IsMarkedTarget && tankApplied > 0)
-                    tankApplied = Mathf.Min(hp, tankApplied * 2);
+                // PROTECTED: absorbs all stream but takes half HP damage
+                int trenchAbsorbed = streamIncoming;
+                int trenchApplied = Mathf.RoundToInt(streamIncoming * 0.5f);
+                trenchApplied = Mathf.Min(trenchApplied, hp);
 
                 return new DamageResult
                 {
-                    AbsorbedFromStream = tankAbsorbed,
-                    AppliedToHP = tankApplied
+                    AbsorbedFromStream = trenchAbsorbed,
+                    AppliedToHP = trenchApplied
                 };
             }
         }
 
-        // Return default damage result (normal units, or marked units handled above)
+        // Return default damage result (simple 1:1 ratio for all units)
         return new DamageResult
         {
             AbsorbedFromStream = absorbed,
@@ -1225,6 +1258,261 @@ if (effectiveAbility == UnitAbilityType.ReduceIncomingDamage50Percent)
                 Note = $"{player.Name} moved {moved} dead units to discard"
             }, alsoDebugLog);
         }
+    }
+
+    // ========================================
+    // FIREPOWER RESOLUTION
+    // ========================================
+
+    /// <summary>
+    /// Resolves commander damage using the FIREPOWER system.
+    ///
+    /// FIREPOWER RULES:
+    /// - Firepower = Leftover damage that overflowed past all enemy units
+    /// - Only the player with HIGHER Firepower deals commander damage
+    /// - Commander damage = Winner's Firepower - Loser's Firepower
+    /// - If tied, no commander damage to either side
+    ///
+    /// The leftover damage is tracked during combat as damage streams flow
+    /// through units. Any damage that isn't absorbed by units becomes "firepower".
+    /// </summary>
+    private static void ResolveFirepowerDamage(Player a, Player b, int leftoverToB, int leftoverToA, CombatReport report, bool alsoDebugLog)
+    {
+        // Firepower is the leftover damage that overflowed past all enemy units
+        // leftoverToB = damage from A that overflowed past B's army (A's firepower)
+        // leftoverToA = damage from B that overflowed past A's army (B's firepower)
+        int firepowerA = leftoverToB;
+        int firepowerB = leftoverToA;
+
+        AddEvent(report, new CombatEvent
+        {
+            Type = CombatEventType.DebugNote,
+            Note = $"[FIREPOWER] {a.Name}: Leftover damage to {b.Name} = {firepowerA}"
+        }, alsoDebugLog);
+
+        AddEvent(report, new CombatEvent
+        {
+            Type = CombatEventType.DebugNote,
+            Note = $"[FIREPOWER] {b.Name}: Leftover damage to {a.Name} = {firepowerB}"
+        }, alsoDebugLog);
+
+        // Determine winner and apply commander damage
+        if (firepowerA > firepowerB)
+        {
+            // Player A wins - deals damage to Player B's commander
+            int damage = firepowerA - firepowerB;
+
+            AddEvent(report, new CombatEvent
+            {
+                Type = CombatEventType.DebugNote,
+                SourcePlayer = a,
+                Note = $"[FIREPOWER] {a.Name} WINS! Firepower {firepowerA} > {firepowerB}. Deals {damage} commander damage."
+            }, alsoDebugLog);
+
+            // THICK SKIN: Apply commander damage multiplier (50% damage reduction)
+            float thickSkinMult = DoctrineSystem.GetCommanderDamageMultiplier?.Invoke(b) ?? 1f;
+            if (!Mathf.Approximately(thickSkinMult, 1f))
+            {
+                int beforeThickSkin = damage;
+                damage = Mathf.RoundToInt(damage * thickSkinMult);
+                AddEvent(report, new CombatEvent
+                {
+                    Type = CombatEventType.AbilityTriggered,
+                    TargetPlayer = b,
+                    Amount = damage,
+                    Note = $"[THICK SKIN] {b.Name} commander damage reduced: {beforeThickSkin} -> {damage}"
+                }, alsoDebugLog);
+            }
+
+            // WALLS: Apply wall defense absorption (damage absorbed before commander HP)
+            if (PerkSystem.Instance != null && damage > 0)
+            {
+                int beforeWall = damage;
+                damage = PerkSystem.Instance.ApplyWallDamage(b, damage);
+                if (damage != beforeWall)
+                {
+                    AddEvent(report, new CombatEvent
+                    {
+                        Type = CombatEventType.AbilityTriggered,
+                        TargetPlayer = b,
+                        Amount = beforeWall - damage,
+                        Note = $"[WALLS] {b.Name} wall absorbed {beforeWall - damage} damage, {damage} remaining"
+                    }, alsoDebugLog);
+                }
+            }
+
+            int beforeHP = b.CommanderHP;
+            b.CommanderHP = Mathf.Max(0, b.CommanderHP - damage);
+
+            AddEvent(report, new CombatEvent
+            {
+                Type = CombatEventType.CommanderDamaged,
+                SourcePlayer = a,
+                TargetPlayer = b,
+                Amount = damage,
+                Note = $"{b.Name} commander takes {damage} damage (HP {beforeHP}->{b.CommanderHP})"
+            }, alsoDebugLog);
+        }
+        else if (firepowerB > firepowerA)
+        {
+            // Player B wins - deals damage to Player A's commander
+            int damage = firepowerB - firepowerA;
+
+            AddEvent(report, new CombatEvent
+            {
+                Type = CombatEventType.DebugNote,
+                SourcePlayer = b,
+                Note = $"[FIREPOWER] {b.Name} WINS! Firepower {firepowerB} > {firepowerA}. Deals {damage} commander damage."
+            }, alsoDebugLog);
+
+            // THICK SKIN: Apply commander damage multiplier (50% damage reduction)
+            float thickSkinMult = DoctrineSystem.GetCommanderDamageMultiplier?.Invoke(a) ?? 1f;
+            if (!Mathf.Approximately(thickSkinMult, 1f))
+            {
+                int beforeThickSkin = damage;
+                damage = Mathf.RoundToInt(damage * thickSkinMult);
+                AddEvent(report, new CombatEvent
+                {
+                    Type = CombatEventType.AbilityTriggered,
+                    TargetPlayer = a,
+                    Amount = damage,
+                    Note = $"[THICK SKIN] {a.Name} commander damage reduced: {beforeThickSkin} -> {damage}"
+                }, alsoDebugLog);
+            }
+
+            // WALLS: Apply wall defense absorption (damage absorbed before commander HP)
+            if (PerkSystem.Instance != null && damage > 0)
+            {
+                int beforeWall = damage;
+                damage = PerkSystem.Instance.ApplyWallDamage(a, damage);
+                if (damage != beforeWall)
+                {
+                    AddEvent(report, new CombatEvent
+                    {
+                        Type = CombatEventType.AbilityTriggered,
+                        TargetPlayer = a,
+                        Amount = beforeWall - damage,
+                        Note = $"[WALLS] {a.Name} wall absorbed {beforeWall - damage} damage, {damage} remaining"
+                    }, alsoDebugLog);
+                }
+            }
+
+            int beforeHP = a.CommanderHP;
+            a.CommanderHP = Mathf.Max(0, a.CommanderHP - damage);
+
+            AddEvent(report, new CombatEvent
+            {
+                Type = CombatEventType.CommanderDamaged,
+                SourcePlayer = b,
+                TargetPlayer = a,
+                Amount = damage,
+                Note = $"{a.Name} commander takes {damage} damage (HP {beforeHP}->{a.CommanderHP})"
+            }, alsoDebugLog);
+        }
+        else
+        {
+            // Tied - no commander damage to either side
+            AddEvent(report, new CombatEvent
+            {
+                Type = CombatEventType.DebugNote,
+                Note = $"[FIREPOWER] TIED! Both players have Firepower={firepowerA}. No commander damage."
+            }, alsoDebugLog);
+        }
+
+        // MERCHANT OF DEATH: Spend leftover gold to deal extra commander damage
+        ApplyMerchantOfDeath(a, b, report, alsoDebugLog);
+        ApplyMerchantOfDeath(b, a, report, alsoDebugLog);
+    }
+
+    /// <summary>
+    /// MERCHANT OF DEATH doctrine: Spend all remaining gold to deal commander damage.
+    /// Called after normal firepower damage resolution.
+    /// </summary>
+    private static void ApplyMerchantOfDeath(Player attacker, Player defender, CombatReport report, bool alsoDebugLog)
+    {
+        if (DoctrineSystem.Instance == null) return;
+        if (attacker.Gold <= 0) return;
+
+        int bonusDamage = DoctrineSystem.Instance.GetLeftoverGoldDamage(attacker);
+        if (bonusDamage <= 0) return;
+
+        int goldSpent = attacker.Gold;
+        attacker.Gold = 0;
+
+        // Apply Thick Skin reduction to Merchant of Death damage too
+        float thickSkinMult = DoctrineSystem.GetCommanderDamageMultiplier?.Invoke(defender) ?? 1f;
+        if (!Mathf.Approximately(thickSkinMult, 1f))
+        {
+            bonusDamage = Mathf.RoundToInt(bonusDamage * thickSkinMult);
+        }
+
+        // Apply wall absorption
+        if (PerkSystem.Instance != null && bonusDamage > 0)
+        {
+            bonusDamage = PerkSystem.Instance.ApplyWallDamage(defender, bonusDamage);
+        }
+
+        if (bonusDamage <= 0) return;
+
+        int beforeHP = defender.CommanderHP;
+        defender.CommanderHP = Mathf.Max(0, defender.CommanderHP - bonusDamage);
+
+        AddEvent(report, new CombatEvent
+        {
+            Type = CombatEventType.AbilityTriggered,
+            SourcePlayer = attacker,
+            TargetPlayer = defender,
+            Amount = bonusDamage,
+            Note = $"[MERCHANT OF DEATH] {attacker.Name} spends {goldSpent} gold to deal {bonusDamage} damage to {defender.Name} commander (HP {beforeHP}->{defender.CommanderHP})"
+        }, alsoDebugLog);
+    }
+
+    /// <summary>
+    /// Calculates total ATK and HP for a player's surviving (alive) units.
+    /// Used for Firepower calculation after combat.
+    /// Includes perk and doctrine ATK bonuses to match combat damage calculation.
+    /// </summary>
+    private static (int totalATK, int totalHP) CalculateSurvivingStats(Player player)
+    {
+        int totalATK = 0;
+        int totalHP = 0;
+
+        if (player != null && player.Rows != null)
+        {
+            foreach (var rowKvp in player.Rows)
+            {
+                foreach (var unit in rowKvp.Value.Units)
+                {
+                    if (unit != null && unit.IsAlive)
+                    {
+                        int atk = unit.ATK;
+
+                        // Add Perk ATK bonuses (Stopping Power, Piercing, Explosives, Heads Up)
+                        if (PerkSystem.GetTypeAtkBonus != null)
+                        {
+                            atk += PerkSystem.GetTypeAtkBonus(player, unit.Type);
+                        }
+
+                        // Add Doctrine ATK bonuses (Close Combat, Ranged Warrior, Iron Skin, Death from Above)
+                        if (DoctrineSystem.GetTypeAtkBonus != null)
+                        {
+                            atk += DoctrineSystem.GetTypeAtkBonus(player, unit.Type);
+                        }
+
+                        // Combined Arms doctrine bonus (vehicles +ATK when infantry present)
+                        if (DoctrineSystem.Instance != null)
+                        {
+                            atk += DoctrineSystem.Instance.GetCombinedArmsBonus(player, unit.Type);
+                        }
+
+                        totalATK += atk;
+                        totalHP += unit.HP;
+                    }
+                }
+            }
+        }
+
+        return (totalATK, totalHP);
     }
 
     // ========================================
@@ -1320,7 +1608,7 @@ if (effectiveAbility == UnitAbilityType.ReduceIncomingDamage50Percent)
 
     /// <summary>
     /// Adds an event to the combat report.
-    /// 
+    ///
     /// LOGGING BEHAVIOR:
     /// - Combat simulation is QUIET by default (no console spam)
     /// - If alsoDebugLog is true, only DebugNote events are printed
@@ -1334,5 +1622,35 @@ if (effectiveAbility == UnitAbilityType.ReduceIncomingDamage50Percent)
         // This keeps combat simulation clean while allowing optional verbose output
         if (alsoDebugLog && e.Type == CombatEventType.DebugNote && !string.IsNullOrEmpty(e.Note))
             Debug.Log(e.Note);
+    }
+
+    /// <summary>
+    /// Counts alive units per UnitType for a player.
+    /// Used to store starting counts so playback knows when a row is wiped.
+    /// </summary>
+    private static Dictionary<UnitType, int> CountUnitsByType(Player player)
+    {
+        var counts = new Dictionary<UnitType, int>
+        {
+            { UnitType.Infantry, 0 },
+            { UnitType.Vehicle, 0 },
+            { UnitType.Air, 0 },
+            { UnitType.Ranged, 0 }
+        };
+
+        if (player?.Rows == null) return counts;
+
+        foreach (var rowKvp in player.Rows)
+        {
+            foreach (var unit in rowKvp.Value.Units)
+            {
+                if (unit != null && unit.IsAlive)
+                {
+                    counts[unit.Type]++;
+                }
+            }
+        }
+
+        return counts;
     }
 }

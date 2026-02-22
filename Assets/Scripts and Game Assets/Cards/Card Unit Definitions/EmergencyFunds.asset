@@ -17,6 +17,7 @@ MonoBehaviour:
   cost: 0
   hp: 0
   atk: 0
+  rarity: 0
   ability: 0
   countsAsVehicle: 0
   abilityParams:
@@ -32,4 +33,5 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: 6477828186639409970, guid: b4a77e073dc624e00b9efd56abfaa728, type: 3}
-  abilityDescription: 
+  abilityDescription: Gain +5 Gold this round
+  Definition: {fileID: 0}

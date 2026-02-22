@@ -17,6 +17,7 @@ MonoBehaviour:
   cost: 0
   hp: 0
   atk: 0
+  rarity: 0
   ability: 0
   countsAsVehicle: 0
   abilityParams:
@@ -32,4 +33,5 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: 2171745852450842852, guid: 9b3ed177e1e7c4e0bb0d6849acca4f6d, type: 3}
-  abilityDescription: 
+  abilityDescription: Destroy one unit with one plane. The plane is destroyed
+  Definition: {fileID: 0}

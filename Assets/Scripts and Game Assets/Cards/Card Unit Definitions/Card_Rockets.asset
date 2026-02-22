@@ -14,9 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
   cardName: Rockets
   type: 3
-  cost: 3
-  hp: 8
-  atk: 10
+  cost: 6
+  hp: 27
+  atk: 17
+  rarity: 0
   ability: 2
   countsAsVehicle: 1
   abilityParams:
@@ -25,9 +26,12 @@ MonoBehaviour:
   isSpecialCard: 0
   specialType: 0
   hasPreemptive: 0
-  preemptiveTargetType: 0
-  preemptiveDamage: 0
+  preemptiveTargetType: 1
+  preemptiveDamage: 100
   targetBackRowOnly: 0
-  worldPrefabA: {fileID: 3598192020344884955, guid: 9c4df28c6bc904fb1b805beaf95db802, type: 3}
-  worldPrefabB: {fileID: 6433015888197768891, guid: 35d60b83bc92b40478426ed1446f8c19, type: 3}
+  worldPrefabA: {fileID: 6311479374392849080, guid: 260940ab53e2441959bca3e6426de837, type: 3}
+  worldPrefabB: {fileID: 6311479374392849080, guid: cf5919d05f8ba419e821152084ef5bfa, type: 3}
   portraitSprite: {fileID: 0}
+  backgroundSprite: {fileID: 0}
+  abilityDescription: 
+  Definition: {fileID: 0}

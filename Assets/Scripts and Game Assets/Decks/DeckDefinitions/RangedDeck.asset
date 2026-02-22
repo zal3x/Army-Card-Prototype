@@ -12,4 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6151811ccd9244dcda75d59bd564273a, type: 3}
   m_Name: RangedDeck
   m_EditorClassIdentifier: Assembly-CSharp::DeckListDefinition
-  entries: []
+  entries:
+  - card: {fileID: 11400000, guid: c930bbfd77b8b4065a117f31b54aa30b, type: 2}
+    count: 10

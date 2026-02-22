@@ -51,14 +51,31 @@ public class CardCarousel : MonoBehaviour
     [Tooltip("Horizontal spacing between cards")]
     public float cardSpacing = 150f;
 
-    [Tooltip("Scale of center (focused) card")]
+    [Tooltip("Spacing multiplier for cards far from center (0.5 = bunched up, 1.0 = normal)")]
+    [Range(0.1f, 1f)]
+    public float sideCardSpacingMultiplier = 1.0f;
+
+    [Tooltip("Base scale multiplier for ALL cards (1.0 = original size, 0.5 = half size)")]
+    [Range(0.1f, 2f)]
+    public float baseCardScale = 1.0f;
+
+    [Tooltip("Scale of center (focused) card (relative to baseCardScale)")]
     public float centerScale = 1.2f;
 
-    [Tooltip("Scale of non-focused cards")]
+    [Tooltip("Scale of non-focused cards (relative to baseCardScale)")]
     public float sideScale = 0.8f;
 
     [Tooltip("Vertical offset for center card (adds depth)")]
     public float centerYOffset = 20f;
+
+    [Header("Opacity Settings")]
+    [Tooltip("Opacity of center card (1.0 = fully opaque)")]
+    [Range(0f, 1f)]
+    public float centerAlpha = 1.0f;
+
+    [Tooltip("Opacity of side cards at maximum distance (0.5 = half transparent)")]
+    [Range(0f, 1f)]
+    public float sideAlpha = 0.5f;
 
     [Header("Scroll Settings")]
     [Tooltip("How fast cards move to center when scrolling")]
@@ -75,8 +92,8 @@ public class CardCarousel : MonoBehaviour
     public bool allowKeyboardInput = true;
 
     [Header("Click Protection")]
-    [Tooltip("Prevents spam clicking (seconds between clicks)")]
-    public float clickCooldown = 0.1f;
+    [Tooltip("Prevents spam clicking (seconds between clicks). Lower = more responsive.")]
+    public float clickCooldown = 0.05f; // Reduced from 0.1f for snappier response
 
     private float lastClickTime = 0f;
 
@@ -98,6 +115,7 @@ public GameObject specialCardPrefab;
     private float currentScrollPosition = 0f;
     private bool isDragging = false;
     private Vector2 dragStartPos;
+    private float[] cachedCardPositions = new float[0]; // Stores compressed positions for each card
 
     // Events
     public System.Action<UnitCard> OnCardSelected;
@@ -149,6 +167,10 @@ GameObject prefabToUse = GetPrefabForCard(cards[i]);
 
             cardVisual.SetCard(cards[i]);
             cardVisual.OnCardClicked += OnCardClicked;
+
+            // Check if card is blocked by battlefield configuration
+            cardVisual.UpdateBattlefieldRestrictionVisual();
+
             cardVisuals.Add(cardVisual);
         }
 
@@ -162,9 +184,21 @@ GameObject prefabToUse = GetPrefabForCard(cards[i]);
 // so UI can enable/disable
 public void SetInputEnabled(bool enabled)
 {
+    // Only apply skip frames when transitioning from disabled -> enabled
+    // This prevents repeated calls from compounding the delay
+    bool wasDisabled = !inputEnabled;
+
     inputEnabled = enabled;
-    if (!enabled) isDragging = false;
+    // Always reset drag state when changing input enabled
+    isDragging = false;
+
+    // Only skip frames when re-enabling from a disabled state
+    // Skip just 1 frame instead of 2 for snappier response
+    if (enabled && wasDisabled)
+        inputSkipUntilFrame = Time.frameCount + 1;
 }
+
+private int inputSkipUntilFrame = 0;
 
     /// <summary>
     /// NEW METHOD: Selects the correct card prefab based on unit type.
@@ -214,6 +248,21 @@ private GameObject GetPrefabForCard(UnitCard card)
         cardVisuals.Clear();
     }
 
+    /// <summary>
+    /// Refreshes battlefield restriction visuals for all cards.
+    /// Call this if the battlefield configuration changes.
+    /// </summary>
+    public void RefreshBattlefieldRestrictions()
+    {
+        foreach (var cardVisual in cardVisuals)
+        {
+            if (cardVisual != null)
+            {
+                cardVisual.UpdateBattlefieldRestrictionVisual();
+            }
+        }
+    }
+
     // ========================================
     // UPDATE & INPUT
     // ========================================
@@ -230,6 +279,10 @@ private GameObject GetPrefabForCard(UnitCard card)
 
     private void HandleInput()
     {
+        // Skip input for a couple frames after re-enabling (prevents click bleed-through)
+        if (Time.frameCount < inputSkipUntilFrame)
+            return;
+
         // Keyboard navigation
         if (allowKeyboardInput)
         {
@@ -240,27 +293,7 @@ private GameObject GetPrefabForCard(UnitCard card)
                 ScrollToCard(currentCenterIndex + 1);
         }
 
-        // Mouse/touch drag
-       if (Input.GetMouseButtonDown(0))
-{
-    if (requirePointerOverThisCarousel)
-    {
-        // Only start dragging if the click started on THIS carousel rect
-        bool over = RectTransformUtility.RectangleContainsScreenPoint(
-            selfRect != null ? selfRect : cardContainer,
-            Input.mousePosition,
-            null
-        );
-
-        if (!over)
-            return;
-    }
-
-    isDragging = true;
-    dragStartPos = Input.mousePosition;
-}
-
-
+        // IMPORTANT: Always process mouse up first to prevent stuck drag state
         if (Input.GetMouseButtonUp(0))
         {
             if (isDragging && snapToCenter)
@@ -271,6 +304,37 @@ private GameObject GetPrefabForCard(UnitCard card)
             isDragging = false;
         }
 
+        // Mouse/touch drag start
+        if (Input.GetMouseButtonDown(0))
+        {
+            if (requirePointerOverThisCarousel)
+            {
+                // Only start dragging if the click started on THIS carousel rect
+                bool over = RectTransformUtility.RectangleContainsScreenPoint(
+                    selfRect != null ? selfRect : cardContainer,
+                    Input.mousePosition,
+                    null
+                );
+
+                if (!over)
+                {
+                    // Not over this carousel, don't start dragging but don't return early
+                    // (we still need to process other input)
+                }
+                else
+                {
+                    isDragging = true;
+                    dragStartPos = Input.mousePosition;
+                }
+            }
+            else
+            {
+                isDragging = true;
+                dragStartPos = Input.mousePosition;
+            }
+        }
+
+        // Process drag movement
         if (isDragging && Input.GetMouseButton(0))
         {
             Vector2 dragDelta = (Vector2)Input.mousePosition - dragStartPos;
@@ -358,17 +422,41 @@ public void SetCardsPreserveCenter(List<UnitCard> cards)
 
     private void UpdateCardPositions(bool immediate)
     {
+        // Calculate compressed positions for all cards
+        cachedCardPositions = new float[cardVisuals.Count];
+        for (int i = 0; i < cardVisuals.Count; i++)
+        {
+            // Distance from center in card indices
+            int distFromCenter = Mathf.Abs(i - currentCenterIndex);
+
+            // Cards further from center use compressed spacing
+            float spacingForThisCard = cardSpacing;
+            if (distFromCenter > 0)
+            {
+                // Progressive compression: cards 1+ away from center bunch up
+                float compressionFactor = Mathf.Lerp(1f, sideCardSpacingMultiplier, (float)distFromCenter / Mathf.Max(1f, cardVisuals.Count));
+                spacingForThisCard *= compressionFactor;
+            }
+
+            // Build cumulative position
+            if (i == 0)
+                cachedCardPositions[i] = 0;
+            else
+                cachedCardPositions[i] = cachedCardPositions[i - 1] + spacingForThisCard;
+        }
+
         for (int i = 0; i < cardVisuals.Count; i++)
         {
             CardVisual card = cardVisuals[i];
             if (card == null) continue;
 
-            // Calculate target position for this card
-            float targetX = (i * cardSpacing) + currentScrollPosition;
+            // Use pre-calculated compressed position
+            float targetX = cachedCardPositions[i] + currentScrollPosition;
             float distanceFromCenter = Mathf.Abs(targetX);
 
-            // Scale based on distance from center
-            float scale = Mathf.Lerp(centerScale, sideScale, distanceFromCenter / cardSpacing);
+            // Scale based on distance from center (now includes baseCardScale)
+            float relativeScale = Mathf.Lerp(centerScale, sideScale, distanceFromCenter / cardSpacing);
+            float scale = relativeScale * baseCardScale;
 
             // Y offset for center card (creates depth effect)
             float yOffset = distanceFromCenter < cardSpacing / 2f ? centerYOffset : 0f;
@@ -377,10 +465,14 @@ public void SetCardsPreserveCenter(List<UnitCard> cards)
             RectTransform rect = card.GetComponent<RectTransform>();
             Vector2 targetPos = new Vector2(targetX, yOffset);
 
+            // Skip scale updates if card has active hover effect
+            bool skipScaleUpdate = card.IsHoverEffectActive;
+
             if (immediate)
             {
                 rect.anchoredPosition = targetPos;
-                rect.localScale = Vector3.one * scale;
+                if (!skipScaleUpdate)
+                    rect.localScale = Vector3.one * scale;
             }
             else
             {
@@ -390,24 +482,61 @@ public void SetCardsPreserveCenter(List<UnitCard> cards)
                     Time.deltaTime * scrollSpeed
                 );
 
-                rect.localScale = Vector3.Lerp(
-                    rect.localScale,
-                    Vector3.one * scale,
-                    Time.deltaTime * scrollSpeed
-                );
+                if (!skipScaleUpdate)
+                {
+                    rect.localScale = Vector3.Lerp(
+                        rect.localScale,
+                        Vector3.one * scale,
+                        Time.deltaTime * scrollSpeed
+                    );
+                }
             }
 
             // Update selection state
             bool isCenter = (i == currentCenterIndex);
             card.SetSelected(isCenter);
 
-            // Alpha fade for cards far from center
-            CanvasGroup canvasGroup = card.GetComponent<CanvasGroup>();
-            if (canvasGroup != null)
+            // Alpha fade for cards far from center (skip if hover is active)
+            if (!skipScaleUpdate)
             {
-                float alpha = Mathf.Lerp(1f, 0.5f, distanceFromCenter / (cardSpacing * 2f));
-                canvasGroup.alpha = alpha;
+                CanvasGroup canvasGroup = card.GetComponent<CanvasGroup>();
+                if (canvasGroup != null)
+                {
+                    float alpha = Mathf.Lerp(centerAlpha, sideAlpha, distanceFromCenter / (cardSpacing * 2f));
+                    canvasGroup.alpha = alpha;
+                }
             }
+        }
+
+        // Update sibling order so center card renders on top of side cards
+        // Cards closer to center get higher sibling index (render later = on top)
+        UpdateCardSiblingOrder();
+    }
+
+    /// <summary>
+    /// Updates card sibling order so center card renders on top.
+    /// Cards are ordered by distance from center - closest to center renders last (on top).
+    /// </summary>
+    private void UpdateCardSiblingOrder()
+    {
+        if (cardVisuals.Count == 0) return;
+
+        // Build list of (card, distance from center)
+        var cardsWithDistance = new List<(CardVisual card, float distance)>();
+        for (int i = 0; i < cardVisuals.Count; i++)
+        {
+            if (cardVisuals[i] == null) continue;
+            int distFromCenter = Mathf.Abs(i - currentCenterIndex);
+            cardsWithDistance.Add((cardVisuals[i], distFromCenter));
+        }
+
+        // Sort by distance descending (furthest first = lowest sibling index)
+        cardsWithDistance.Sort((a, b) => b.distance.CompareTo(a.distance));
+
+        // Apply sibling order
+        for (int i = 0; i < cardsWithDistance.Count; i++)
+        {
+            cardsWithDistance[i].card.transform.SetSiblingIndex(i);
         }
     }
 
@@ -421,7 +550,13 @@ public void SetCardsPreserveCenter(List<UnitCard> cards)
     public void ScrollToCard(int index)
     {
         index = Mathf.Clamp(index, 0, cardVisuals.Count - 1);
-        targetScrollPosition = -index * cardSpacing;
+
+        // Use cached compressed position for accurate centering
+        if (cachedCardPositions != null && index < cachedCardPositions.Length)
+            targetScrollPosition = -cachedCardPositions[index];
+        else
+            targetScrollPosition = -index * cardSpacing; // Fallback
+
         currentCenterIndex = index;
         OnFocusChanged?.Invoke(currentCenterIndex);
     }
@@ -431,7 +566,20 @@ public void SetCardsPreserveCenter(List<UnitCard> cards)
     /// </summary>
     private void SnapToNearestCard()
     {
-        int nearestIndex = Mathf.RoundToInt(-currentScrollPosition / cardSpacing);
+        // Find the card whose compressed position is closest to current scroll position
+        int nearestIndex = 0;
+        float minDistance = float.MaxValue;
+
+        for (int i = 0; i < cachedCardPositions.Length; i++)
+        {
+            float distance = Mathf.Abs(-cachedCardPositions[i] - currentScrollPosition);
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                nearestIndex = i;
+            }
+        }
+
         ScrollToCard(nearestIndex);
     }
 
@@ -461,30 +609,41 @@ public void SetCardsPreserveCenter(List<UnitCard> cards)
 
     private void OnCardClicked(CardVisual card)
 {
+    // Debug: Log all carousel click handling
+    Debug.Log($"[CAROUSEL] OnCardClicked received - inputEnabled={inputEnabled}, frameSkip={inputSkipUntilFrame}, currentFrame={Time.frameCount}");
+
     // Track the most recent click (used by BuyPhase to remove/fly the correct visual)
     LastClickedVisual = card;
 
     // DEBOUNCE: Prevent spam clicking
-    if (Time.time - lastClickTime < clickCooldown)
+    float timeSinceLastClick = Time.time - lastClickTime;
+    if (timeSinceLastClick < clickCooldown)
     {
-        Debug.Log($"[CAROUSEL] Click ignored (cooldown: {Time.time - lastClickTime:F2}s)");
+        Debug.Log($"[CAROUSEL] Click ignored (cooldown: {timeSinceLastClick:F3}s < {clickCooldown}s)");
         return;
     }
 
     lastClickTime = Time.time;
 
-    // If clicked card is not centered, scroll to it
+    // Check card index
     int index = cardVisuals.IndexOf(card);
+    Debug.Log($"[CAROUSEL] Card '{card?.cardData?.Name}' index={index}, currentCenterIndex={currentCenterIndex}, cardVisuals.Count={cardVisuals.Count}");
+
+    if (index == -1)
+    {
+        Debug.LogWarning($"[CAROUSEL] Clicked card NOT in cardVisuals list! Card may have been removed.");
+        return;
+    }
 
     if (index != currentCenterIndex)
     {
-        Debug.Log($"[CAROUSEL] Scrolling to card at index {index}");
+        Debug.Log($"[CAROUSEL] Scrolling to card at index {index} (center is {currentCenterIndex})");
         ScrollToCard(index);
     }
     else
     {
         // Center card was clicked - select it
-        Debug.Log($"[CAROUSEL] Selected: {card.cardData.Name}");
+        Debug.Log($"[CAROUSEL] SELECTED: {card.cardData.Name} - invoking OnCardSelected");
         OnCardSelected?.Invoke(card.cardData);
     }
 }
@@ -542,6 +701,14 @@ public void RemoveCardNoAnimation(CardVisual card)
     if (index == -1) return;
 
     cardVisuals.RemoveAt(index);
+
+    // IMPORTANT: Immediately disable raycasts so removed card can't block clicks
+    CanvasGroup cg = card.GetComponent<CanvasGroup>();
+    if (cg != null)
+    {
+        cg.blocksRaycasts = false;
+        cg.interactable = false;
+    }
 
     // Detach from carousel so UpdateCardPositions no longer drives it
     // (Keep world position so it doesn't jump)

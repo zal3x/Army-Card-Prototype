@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DeckListDefinition
   entries:
   - card: {fileID: 11400000, guid: f7cb2a01cb0e541f58f4fdb14e98e6a6, type: 2}
-    count: 5
+    count: 50
   - card: {fileID: 11400000, guid: 531cd28c2ccbd4f688ecd9c165af780c, type: 2}
     count: 3
   - card: {fileID: 11400000, guid: 0eb78116dffef46329841cc9d4841a67, type: 2}

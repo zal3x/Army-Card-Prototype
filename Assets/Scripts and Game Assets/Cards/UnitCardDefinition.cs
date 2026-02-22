@@ -14,6 +14,10 @@ public class UnitCardDefinition : ScriptableObject
     public int hp;
     public int atk;
 
+    [Header("Rarity")]
+    [Tooltip("Determines drop rate in shops and card value")]
+    public CardRarity rarity = CardRarity.Common;
+
     [Header("Ability (simple keyword + parameters)")]
     public UnitAbilityType ability = UnitAbilityType.None;
 

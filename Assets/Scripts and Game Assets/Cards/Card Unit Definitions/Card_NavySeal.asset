@@ -14,9 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
   cardName: Navy Seal
   type: 0
-  cost: 5
-  hp: 15
-  atk: 10
+  cost: 4
+  hp: 24
+  atk: 8
+  rarity: 0
   ability: 4
   countsAsVehicle: 0
   abilityParams:
@@ -28,6 +29,9 @@ MonoBehaviour:
   preemptiveTargetType: 0
   preemptiveDamage: 0
   targetBackRowOnly: 0
-  worldPrefabA: {fileID: 8578470921792587362, guid: fb3f384a78c0944c9aef1acb402f16ac, type: 3}
-  worldPrefabB: {fileID: 8899080319336703372, guid: dda51ffb3d0114f08a89e3506a5a87b3, type: 3}
+  worldPrefabA: {fileID: 8596022351263419682, guid: d4e367ee104e041308ca611b222c25e3, type: 3}
+  worldPrefabB: {fileID: 8088976779047543187, guid: 89203b664a94a4c858e95cdffbb22818, type: 3}
   portraitSprite: {fileID: 0}
+  backgroundSprite: {fileID: 0}
+  abilityDescription: 
+  Definition: {fileID: 0}

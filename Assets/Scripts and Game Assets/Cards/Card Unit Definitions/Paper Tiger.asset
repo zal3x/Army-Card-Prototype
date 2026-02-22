@@ -17,6 +17,7 @@ MonoBehaviour:
   cost: 0
   hp: 0
   atk: 0
+  rarity: 0
   ability: 0
   countsAsVehicle: 0
   abilityParams:
@@ -32,4 +33,6 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: 8492349597091700090, guid: 0b8471b8c66844e3cabca787ae65de97, type: 3}
-  abilityDescription: 
+  abilityDescription: Replace any unit on the battlefield; unit will be in hand and
+    cost 0 gold next rounds
+  Definition: {fileID: 0}

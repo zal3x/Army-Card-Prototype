@@ -15,17 +15,23 @@ MonoBehaviour:
   cardName: IFV
   type: 1
   cost: 7
-  hp: 15
-  atk: 8
+  hp: 32
+  atk: 19
+  rarity: 0
   ability: 8
   countsAsVehicle: 0
   abilityParams:
     Multiplier: 1
     Amount: 10
+  isSpecialCard: 0
+  specialType: 0
   hasPreemptive: 0
   preemptiveTargetType: 0
   preemptiveDamage: 0
   targetBackRowOnly: 0
-  worldPrefabA: {fileID: 3015003847550376168, guid: cc0d2944e0bb84e499c0d182a2c126eb, type: 3}
-  worldPrefabB: {fileID: 4675991791776931622, guid: 37f67fd89f9fb48ce91f9c974f01ba6d, type: 3}
+  worldPrefabA: {fileID: 6311479374392849080, guid: e290ee056994549b6b1ef072211b6df7, type: 3}
+  worldPrefabB: {fileID: 6311479374392849080, guid: ae39b2407b1c643e2ac04655b54358d0, type: 3}
   portraitSprite: {fileID: 0}
+  backgroundSprite: {fileID: 0}
+  abilityDescription: 
+  Definition: {fileID: 0}

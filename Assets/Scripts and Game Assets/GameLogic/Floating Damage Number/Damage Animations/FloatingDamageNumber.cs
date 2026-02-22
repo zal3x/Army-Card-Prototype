@@ -80,38 +80,69 @@ public class FloatingDamageNumber : MonoBehaviour
     /// Called by DamageNumberSpawner.
     /// </summary>
     public void Initialize(int amount, DamageNumberType type, string prefix = "", string suffix = "")
-{
-    transform.localScale = Vector3.one; // or a tuned value like 0.8f
-
-    if (textMesh == null)
     {
-        Debug.LogError("[FloatingDamageNumber] TextMeshProUGUI not found!");
-        Destroy(gameObject);
-        return;
+        transform.localScale = Vector3.one;
+
+        if (textMesh == null)
+        {
+            Debug.LogError("[FloatingDamageNumber] TextMeshProUGUI not found!");
+            Destroy(gameObject);
+            return;
+        }
+
+        // Build text with prefix/suffix
+        string displayText = amount.ToString();
+        if (!string.IsNullOrEmpty(prefix))
+            displayText = prefix + " " + displayText;
+        if (!string.IsNullOrEmpty(suffix))
+            displayText = displayText + suffix;
+
+        textMesh.text = displayText;
+        textMesh.color = GetColorForType(type);
+        textMesh.fontSize = GetFontSizeForType(type, amount);
+
+        float randomX = Random.Range(-horizontalSpread, horizontalSpread);
+        velocity = new Vector3(randomX, riseSpeed, 0f);
+
+        if (canvasGroup != null)
+            canvasGroup.alpha = 1f;
+
+        if (useScalePop)
+            StartCoroutine(ScalePopAnimation());
+
+        Destroy(gameObject, lifetime);
     }
 
-    // Build text with prefix/suffix
-    string displayText = amount.ToString();
-    if (!string.IsNullOrEmpty(prefix))
-        displayText = prefix + " " + displayText;
-    if (!string.IsNullOrEmpty(suffix))
-        displayText = displayText + suffix;
+    /// <summary>
+    /// Initializes with custom text, color, and font size (no amount number).
+    /// Used for ability activations like "x2 ATK".
+    /// </summary>
+    public void InitializeText(string text, Color color, float fontSizeMultiplier = 1f)
+    {
+        transform.localScale = Vector3.one;
 
-    textMesh.text = displayText;
-    textMesh.color = GetColorForType(type);
-    textMesh.fontSize = GetFontSizeForType(type, amount);
+        if (textMesh == null)
+        {
+            Debug.LogError("[FloatingDamageNumber] TextMeshProUGUI not found!");
+            Destroy(gameObject);
+            return;
+        }
 
-    float randomX = Random.Range(-horizontalSpread, horizontalSpread);
-    velocity = new Vector3(randomX, riseSpeed, 0f);
+        textMesh.text = text;
+        textMesh.color = color;
+        textMesh.fontSize = 28f * fontSizeMultiplier; // Base size * multiplier
 
-    if (canvasGroup != null)
-        canvasGroup.alpha = 1f;
+        float randomX = Random.Range(-horizontalSpread, horizontalSpread);
+        velocity = new Vector3(randomX, riseSpeed, 0f);
 
-    if (useScalePop)
-        StartCoroutine(ScalePopAnimation());
+        if (canvasGroup != null)
+            canvasGroup.alpha = 1f;
 
-    Destroy(gameObject, lifetime);
-}
+        if (useScalePop)
+            StartCoroutine(ScalePopAnimation());
+
+        Destroy(gameObject, lifetime);
+    }
 
     private void Update()
     {

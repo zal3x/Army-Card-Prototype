@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c584815bb2e4c49459f143b0b7d6511f, type: 3}
+  m_Name: Card_Anti_Air
+  m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
+  cardName: Anti Air
+  type: 1
+  cost: 5
+  hp: 20
+  atk: 10
+  rarity: 0
+  ability: 12
+  countsAsVehicle: 0
+  abilityParams:
+    Multiplier: 1
+    Amount: 0
+  isSpecialCard: 0
+  specialType: 0
+  hasPreemptive: 0
+  preemptiveTargetType: 0
+  preemptiveDamage: 0
+  targetBackRowOnly: 0
+  worldPrefabA: {fileID: 4781475229805235644, guid: ba6c59715d863455891694690af8d419, type: 3}
+  worldPrefabB: {fileID: 4781475229805235644, guid: 1d11a98f11f724b9f94887e72ef38f97, type: 3}
+  portraitSprite: {fileID: -4068025557870780472, guid: d43f9532ff2fb44b990374c67fcd17fb, type: 3}
+  backgroundSprite: {fileID: 0}
+  abilityDescription: 
+  Definition: {fileID: 0}

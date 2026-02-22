@@ -5,10 +5,50 @@ public enum UnitType {
     Ranged
 }
 
+/// <summary>
+/// Card rarity for the shop/drop system.
+/// Default drop rates: Common 60%, Uncommon 20%, Rare 10%, Epic 7%, Legendary 3%
+/// </summary>
+public enum CardRarity
+{
+    Common,
+    Uncommon,
+    Rare,
+    Epic,
+    Legendary
+}
+
 public enum RowType {
     Front,
     Middle,
     Back
+}
+
+/// <summary>
+/// Defines the row configuration mode for a battlefield.
+/// Controls which unit types can be played and where they go.
+/// </summary>
+public enum BattlefieldRowMode
+{
+    /// <summary>
+    /// Standard layout: Infantry / Vehicle+Ranged / Air
+    /// - Front: Infantry
+    /// - Middle: Vehicle AND Ranged (shared)
+    /// - Back: Air
+    /// </summary>
+    Standard,
+
+    /// <summary>
+    /// Ground-only layout: Infantry / Vehicle / Ranged (Air disabled)
+    /// - Front: Infantry
+    /// - Middle: Vehicle only
+    /// - Back: Ranged only
+    /// - Air units CANNOT be played
+    /// </summary>
+    GroundOnly,
+
+    // Future modes can be added here:
+    // NavalOnly, AirSupremacy, etc.
 }
 // -------------------------
 // UNIT ABILITIES (prototype)
@@ -54,5 +94,15 @@ public enum UnitAbilityType
     TauntRowFirst,
     TargetMark,
 
+    // -------------------------
+    // SPECIAL DISPLAY-ONLY TYPES
+    // -------------------------
+    // These aren't real unit abilities but are used for floating text display
+
+    /// <summary>
+    /// Used when a commander bonus (not a unit ability) triggers an ATK/HP bonus.
+    /// This allows separate display settings in AbilityDisplaySettings.
+    /// </summary>
+    CommanderBonusActivation,
 }
 

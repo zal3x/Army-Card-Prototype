@@ -15,8 +15,9 @@ MonoBehaviour:
   cardName: RPG
   type: 0
   cost: 2
-  hp: 3
-  atk: 5
+  hp: 6
+  atk: 7
+  rarity: 0
   ability: 3
   countsAsVehicle: 0
   abilityParams:
@@ -28,6 +29,9 @@ MonoBehaviour:
   preemptiveTargetType: 0
   preemptiveDamage: 0
   targetBackRowOnly: 0
-  worldPrefabA: {fileID: 8578470921792587362, guid: fb3f384a78c0944c9aef1acb402f16ac, type: 3}
-  worldPrefabB: {fileID: 8899080319336703372, guid: dda51ffb3d0114f08a89e3506a5a87b3, type: 3}
+  worldPrefabA: {fileID: 5568460202070171024, guid: 789b9a2cfebef4c13ad8d5c59ab10ef2, type: 3}
+  worldPrefabB: {fileID: 7219369220106542554, guid: bbbeae9d08f7a482783fca85360d57f6, type: 3}
   portraitSprite: {fileID: 0}
+  backgroundSprite: {fileID: 0}
+  abilityDescription: 
+  Definition: {fileID: 0}

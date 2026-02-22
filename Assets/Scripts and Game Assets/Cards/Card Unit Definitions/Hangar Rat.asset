@@ -17,6 +17,7 @@ MonoBehaviour:
   cost: 0
   hp: 0
   atk: 0
+  rarity: 0
   ability: 0
   countsAsVehicle: 0
   abilityParams:
@@ -32,4 +33,5 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: -8388385207488264875, guid: 4885567ccadb84b658e9a5cb05a918ee, type: 3}
-  abilityDescription: 
+  abilityDescription: Air row recovers 50% HP
+  Definition: {fileID: 0}

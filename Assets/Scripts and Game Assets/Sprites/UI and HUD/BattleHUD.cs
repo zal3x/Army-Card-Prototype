@@ -48,12 +48,19 @@ public class BattleHUD : MonoBehaviour
     [Tooltip("Player B's army stats (total ATK/HP)")]
     public ArmyStatsDisplay armyStatsB;
 
+    [Header("Firepower Display (Center Panel)")]
+    [Tooltip("Shows firepower for both players (ATK - Enemy HP). Only the player with higher firepower deals commander damage.")]
+    public FirepowerDisplay firepowerDisplay;
+
     [Header("Optional: Commander Sprites")]
-    [Tooltip("Portrait sprite for Player A's commander")]
+    [Tooltip("Portrait sprite for Player A's commander (default if not overridden)")]
     public Sprite commanderSpriteA;
 
-    [Tooltip("Portrait sprite for Player B's commander")]
+    [Tooltip("Portrait sprite for Player B's commander (default if not overridden by enemy commander)")]
     public Sprite commanderSpriteB;
+
+    // Runtime override for enemy commander portrait (set by BattleTestRunner)
+    private Sprite runtimeEnemyPortrait;
 
     [Header("Settings")]
     [Tooltip("Enable damage numbers spawning at commander portraits")]
@@ -88,6 +95,24 @@ public string goldPrefix = "💰 ";
     // ========================================
 
     /// <summary>
+    /// Sets the enemy commander's portrait for this battle.
+    /// Call this before Initialize() when starting a battle from the world map.
+    /// </summary>
+    public void SetEnemyCommander(CommanderDefinition enemyCommander)
+    {
+        if (enemyCommander != null && enemyCommander.mapPortrait != null)
+        {
+            runtimeEnemyPortrait = enemyCommander.mapPortrait;
+            Debug.Log($"[BattleHUD] Set enemy commander portrait: {enemyCommander.displayName}");
+        }
+        else
+        {
+            runtimeEnemyPortrait = null;
+            Debug.Log("[BattleHUD] Enemy commander has no portrait, using default");
+        }
+    }
+
+    /// <summary>
     /// Initializes all HUD elements at battle start.
     /// Call this once in BattleTestRunner.Start().
     /// </summary>
@@ -99,9 +124,11 @@ public string goldPrefix = "💰 ";
             commanderDisplayA.Initialize(commanderStartHP, commanderSpriteA, "Player A");
         }
 
+        // Use runtime enemy portrait if set, otherwise fallback to Inspector default
+        Sprite enemyPortrait = runtimeEnemyPortrait != null ? runtimeEnemyPortrait : commanderSpriteB;
         if (commanderDisplayB != null)
         {
-            commanderDisplayB.Initialize(commanderStartHP, commanderSpriteB, "Player B");
+            commanderDisplayB.Initialize(commanderStartHP, enemyPortrait, "Player B");
         }
 
         // Initialize army stats to zero
@@ -113,6 +140,12 @@ public string goldPrefix = "💰 ";
         if (armyStatsB != null)
         {
             armyStatsB.UpdateStats(0, 0, immediate: true);
+        }
+
+        // Initialize firepower display
+        if (firepowerDisplay != null)
+        {
+            firepowerDisplay.Reset();
         }
 
         Debug.Log("[BattleHUD] Initialized with commander HP: " + commanderStartHP);
@@ -192,29 +225,128 @@ if (goldDisplayB != null)
     }
 
     // ========================================
+    // UNIFIED COMMANDER HEALTH SYSTEM
+    // ========================================
+
+    /// <summary>
+    /// Called when a unit is deployed to the battlefield.
+    /// Expands the commander's health pool by the unit's HP.
+    /// </summary>
+    public void OnUnitDeployed(Player player, Unit unit, Player playerA, Player playerB)
+    {
+        if (player == null || unit == null) return;
+
+        var settings = CombatVisualSettings.Instance;
+        if (settings == null || !settings.useUnifiedCommanderHealth) return;
+
+        // Expand the appropriate commander's health bar
+        if (player == playerA && commanderDisplayA != null)
+        {
+            commanderDisplayA.ExpandMaxHP(unit.MaxHP, animate: true);
+            Debug.Log($"[BattleHUD] Player A deployed {unit.Name}: +{unit.MaxHP} HP (Total: {player.CommanderMaxHP})");
+        }
+        else if (player == playerB && commanderDisplayB != null)
+        {
+            commanderDisplayB.ExpandMaxHP(unit.MaxHP, animate: true);
+            Debug.Log($"[BattleHUD] Player B deployed {unit.Name}: +{unit.MaxHP} HP (Total: {player.CommanderMaxHP})");
+        }
+
+        // Refresh army stats to show updated totals
+        RefreshArmyStats(playerA, playerB);
+    }
+
+    /// <summary>
+    /// Updates commander HP displays with specific staged values.
+    /// Used for visual feedback during explosion sequences - HP drops as units explode.
+    /// Does NOT spawn damage numbers (those are handled separately in the finale).
+    /// </summary>
+    public void UpdateCommanderHPStaged(Player playerA, int visualHPA, Player playerB, int visualHPB)
+    {
+        if (commanderDisplayA != null && playerA != null)
+        {
+            commanderDisplayA.SetHealth(visualHPA, playDamageEffects: false);
+        }
+
+        if (commanderDisplayB != null && playerB != null)
+        {
+            commanderDisplayB.SetHealth(visualHPB, playDamageEffects: false);
+        }
+    }
+
+    /// <summary>
+    /// Syncs commander displays to current player state after combat.
+    /// Shrinks health bars to reflect surviving units.
+    /// </summary>
+    public void SyncCommanderHealthState(Player playerA, Player playerB)
+    {
+        var settings = CombatVisualSettings.Instance;
+        if (settings == null || !settings.useUnifiedCommanderHealth) return;
+
+        if (commanderDisplayA != null && playerA != null)
+        {
+            commanderDisplayA.SetHealthState(playerA.CommanderHP, playerA.CommanderMaxHP, animate: true);
+            Debug.Log($"[BattleHUD] Synced Player A health: {playerA.CommanderHP}/{playerA.CommanderMaxHP}");
+        }
+
+        if (commanderDisplayB != null && playerB != null)
+        {
+            commanderDisplayB.SetHealthState(playerB.CommanderHP, playerB.CommanderMaxHP, animate: true);
+            Debug.Log($"[BattleHUD] Synced Player B health: {playerB.CommanderHP}/{playerB.CommanderMaxHP}");
+        }
+    }
+
+    /// <summary>
+    /// Initializes unified health display for a player.
+    /// Call this at battle start after setting up the Player's CommanderBaseHP.
+    /// </summary>
+    public void InitializeUnifiedHealth(Player playerA, Player playerB)
+    {
+        var settings = CombatVisualSettings.Instance;
+        if (settings == null || !settings.useUnifiedCommanderHealth) return;
+
+        if (commanderDisplayA != null && playerA != null)
+        {
+            commanderDisplayA.SetHealthState(playerA.CommanderHP, playerA.CommanderMaxHP, animate: false);
+        }
+
+        if (commanderDisplayB != null && playerB != null)
+        {
+            commanderDisplayB.SetHealthState(playerB.CommanderHP, playerB.CommanderMaxHP, animate: false);
+        }
+    }
+
+    // ========================================
     // PUBLIC API - ARMY STATS UPDATES
     // ========================================
 
     /// <summary>
     /// Refreshes army stats for both players.
     /// Call this after buy phase, combat, or rearrangement.
+    /// Uses ability-aware ATK calculations (includes double ATK abilities).
     /// </summary>
     public void RefreshArmyStats(Player playerA, Player playerB, bool immediate = false)
     {
+        // Pass enemy context for ability-aware ATK calculations
         if (armyStatsA != null && playerA != null)
         {
-            armyStatsA.RefreshFromPlayer(playerA, immediate);
+            armyStatsA.RefreshFromPlayer(playerA, playerB, immediate);
         }
 
         if (armyStatsB != null && playerB != null)
         {
-            armyStatsB.RefreshFromPlayer(playerB, immediate);
+            armyStatsB.RefreshFromPlayer(playerB, playerA, immediate);
         }
 
         // Update comparison colors if enabled
         if (enableStatComparison)
         {
             UpdateStatComparisons(playerA, playerB);
+        }
+
+        // Update firepower display (center panel)
+        if (firepowerDisplay != null)
+        {
+            firepowerDisplay.Refresh(playerA, playerB, immediate);
         }
     }
 
@@ -226,9 +358,9 @@ if (goldDisplayB != null)
         if (armyStatsA == null || armyStatsB == null) return;
         if (playerA == null || playerB == null) return;
 
-        // Calculate totals for comparison
-        (int atkA, int hpA) = CalculateTotalStats(playerA);
-        (int atkB, int hpB) = CalculateTotalStats(playerB);
+        // Calculate totals for comparison (with enemy context for ability calculations)
+        (int atkA, int hpA) = CalculateTotalStats(playerA, playerB);
+        (int atkB, int hpB) = CalculateTotalStats(playerB, playerA);
 
         // Set comparison values
         if (armyStatsA != null)
@@ -240,8 +372,9 @@ if (goldDisplayB != null)
 
     /// <summary>
     /// Helper method to calculate total army stats.
+    /// Uses ability-aware ATK calculation (includes double ATK abilities).
     /// </summary>
-    private (int totalATK, int totalHP) CalculateTotalStats(Player player)
+    private (int totalATK, int totalHP) CalculateTotalStats(Player player, Player enemy = null)
     {
         int totalATK = 0;
         int totalHP = 0;
@@ -250,11 +383,30 @@ if (goldDisplayB != null)
         {
             foreach (var rowKvp in player.Rows)
             {
-                foreach (var unit in rowKvp.Value.Units)
+                RowType rowType = rowKvp.Key;
+                var row = rowKvp.Value;
+
+                // Build count by name for this row (for 3-of-a-kind)
+                var aliveCountByName = new System.Collections.Generic.Dictionary<string, int>();
+                foreach (var u in row.Units)
+                {
+                    if (u != null && u.IsAlive)
+                    {
+                        if (!aliveCountByName.ContainsKey(u.Name))
+                            aliveCountByName[u.Name] = 0;
+                        aliveCountByName[u.Name]++;
+                    }
+                }
+
+                foreach (var unit in row.Units)
                 {
                     if (unit != null && unit.IsAlive)
                     {
-                        totalATK += unit.ATK;
+                        // Use ability-aware ATK calculation
+                        int effectiveATK = AbilitySystem.GetEffectiveAttackForBuyPhase(
+                            unit, player, enemy, rowType, aliveCountByName);
+
+                        totalATK += effectiveATK;
                         totalHP += unit.HP;
                     }
                 }

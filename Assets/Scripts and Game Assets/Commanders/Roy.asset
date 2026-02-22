@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5dab9e22d0e0b41ca840e11b3c8f79bd, type: 3}
   m_Name: Roy
   m_EditorClassIdentifier: Assembly-CSharp::CommanderDefinition
-  commanderId: 0
+  commanderId: 3
   displayName: Commander
-  description: 
-  deck: {fileID: 0}
+  description: 1 Gold off all units
+  deck: {fileID: 11400000, guid: 7e513a439d44d41c0891248f4f09ef0d, type: 2}
   overrideStartingHP: 0
   startingHP: 2000
   overrideStartingGold: 0

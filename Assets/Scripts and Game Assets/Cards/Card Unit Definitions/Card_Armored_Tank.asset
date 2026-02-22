@@ -14,9 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
   cardName: Armored Tank
   type: 1
-  cost: 22
-  hp: 20
-  atk: 22
+  cost: 20
+  hp: 60
+  atk: 40
+  rarity: 0
   ability: 5
   countsAsVehicle: 0
   abilityParams:
@@ -28,8 +29,9 @@ MonoBehaviour:
   preemptiveTargetType: 0
   preemptiveDamage: 0
   targetBackRowOnly: 0
-  worldPrefabA: {fileID: 5123729864731270809, guid: bab86d49be759482084ff55e3bc3f0d0, type: 3}
-  worldPrefabB: {fileID: 4959786469833489690, guid: 082944d02fe684c789b4801379158f2f, type: 3}
+  worldPrefabA: {fileID: 4781475229805235644, guid: 31f85a2eb9d6f464381229558e3a8874, type: 3}
+  worldPrefabB: {fileID: 1284982611255972012, guid: 3030fade405e842e1bcd76bfd45fd441, type: 3}
   portraitSprite: {fileID: -4068025557870780472, guid: d43f9532ff2fb44b990374c67fcd17fb, type: 3}
   backgroundSprite: {fileID: 0}
   abilityDescription: 
+  Definition: {fileID: 0}

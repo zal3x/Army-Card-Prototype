@@ -3,6 +3,17 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
+/// Tracks ability activation info for UI feedback (floating damage numbers).
+/// </summary>
+public struct AbilityActivationInfo
+{
+    public bool AbilityActivated;
+    public UnitAbilityType AbilityType;
+    public int BonusATK;
+    public string Reason;
+}
+
+/// <summary>
 /// AbilitySystem: Centralized ability execution for the entire game.
 /// 
 /// DESIGN PHILOSOPHY:
@@ -157,22 +168,148 @@ public static class AbilitySystem
     }
 
     // ========================================
+    // BUY PHASE: EFFECTIVE ATTACK CALCULATION
+    // ========================================
+
+    /// <summary>
+    /// Calculates the effective attack value for a unit during the buy phase.
+    /// This allows the UI to show accurate firepower including ability bonuses
+    /// BEFORE combat starts.
+    ///
+    /// WHEN THIS IS CALLED:
+    /// - During buy phase when units are placed
+    /// - When FirepowerDisplay refreshes
+    /// - Anytime UI needs to show ability-adjusted ATK
+    ///
+    /// RETURNS:
+    /// Final ATK value including ability modifiers (for UI display)
+    ///
+    /// Also returns ability activation info for floating damage numbers.
+    /// </summary>
+    public static int GetEffectiveAttackForBuyPhase(
+        Unit unit,
+        Player owner,
+        Player enemy,
+        RowType row,
+        Dictionary<string, int> aliveCountByNameOnRow,
+        out AbilityActivationInfo activationInfo)
+    {
+        activationInfo = new AbilityActivationInfo();
+
+        if (unit == null || !unit.IsAlive)
+            return 0;
+
+        int baseAtk = unit.ATK;
+        int finalAtk = baseAtk;
+
+        // ========================================
+        // RPG: Double ATK if enemy has any alive tank
+        // ========================================
+        bool enemyHasTank = EnemyHasAliveTank(enemy);
+        if (unit.Ability == UnitAbilityType.DoubleAttackIfEnemyHasTank && enemyHasTank)
+        {
+            finalAtk *= 2;
+            activationInfo.AbilityActivated = true;
+            activationInfo.AbilityType = UnitAbilityType.DoubleAttackIfEnemyHasTank;
+            activationInfo.BonusATK = baseAtk; // Doubled means bonus = original ATK
+            activationInfo.Reason = "Enemy has tank";
+        }
+
+        // ========================================
+        // 3-OF-A-KIND: Double ATK if 3+ copies in this row
+        // ========================================
+        if (unit.Ability == UnitAbilityType.DoubleAttackIfThreeOfKindOnRow)
+        {
+            if (aliveCountByNameOnRow != null &&
+                aliveCountByNameOnRow.TryGetValue(unit.Name, out int count) &&
+                count >= 3)
+            {
+                finalAtk *= 2;
+                activationInfo.AbilityActivated = true;
+                activationInfo.AbilityType = UnitAbilityType.DoubleAttackIfThreeOfKindOnRow;
+                activationInfo.BonusATK = baseAtk;
+                activationInfo.Reason = $"3+ {unit.Name} in row";
+            }
+        }
+
+        // ========================================
+        // FULL HEALTH: Double ATK if at max HP
+        // ========================================
+        if (unit.Ability == UnitAbilityType.DoubleAttackIfFullHealth)
+        {
+            if (unit.HP == unit.MaxHP)
+            {
+                finalAtk *= 2;
+                activationInfo.AbilityActivated = true;
+                activationInfo.AbilityType = UnitAbilityType.DoubleAttackIfFullHealth;
+                activationInfo.BonusATK = baseAtk;
+                activationInfo.Reason = "Full health";
+            }
+        }
+
+        // Commander bonuses are NOT tracked as ability activations.
+        // They are permanent stat changes applied at battle start via:
+        // - CommanderBonus.ApplyPermanentBonusesToCard() (for always-on bonuses)
+        // - CommanderBonus.ApplyPermanentBonusesToUnit() (for unit-level bonuses)
+        // The stats are already baked into unit.ATK at this point.
+        //
+        // Conditional bonuses (terrain/weather like Seth/Aqua) are also NOT activations -
+        // they're just part of the battlefield state that affects combat calculations.
+        //
+        // DO NOT add ability activation tracking here for commander bonuses.
+
+        return finalAtk;
+    }
+
+    /// <summary>
+    /// Simplified version for UI calculations that doesn't track activation.
+    /// </summary>
+    public static int GetEffectiveAttackForBuyPhase(
+        Unit unit,
+        Player owner,
+        Player enemy,
+        RowType row,
+        Dictionary<string, int> aliveCountByNameOnRow)
+    {
+        return GetEffectiveAttackForBuyPhase(unit, owner, enemy, row, aliveCountByNameOnRow, out _);
+    }
+
+    /// <summary>
+    /// Checks if enemy has any alive tanks (for RPG ability).
+    /// Made public so FirepowerDisplay can use it.
+    /// </summary>
+    public static bool EnemyHasAliveTank(Player enemy)
+    {
+        if (enemy == null || enemy.Rows == null) return false;
+
+        foreach (var row in enemy.Rows.Values)
+        {
+            foreach (var u in row.Units)
+            {
+                if (u != null && u.IsAlive && u.Type == UnitType.Vehicle)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    // ========================================
     // COMBAT ABILITIES: ATTACK SNAPSHOT
     // ========================================
 
     /// <summary>
     /// Calculates the attack value for a unit after applying ability modifiers.
-    /// 
+    ///
     /// WHEN THIS IS CALLED:
     /// - Once per unit, before damage is applied
     /// - After pre-emptive strikes are resolved
     /// - Before damage streams are calculated
-    /// 
+    ///
     /// ABILITY TYPES HANDLED HERE:
     /// - Conditional ATK multipliers (RPG, 3-of-a-kind, full health)
     /// - Row-wide buffs (future: Commander ability)
     /// - Enemy-dependent modifiers (future: SOS below 50% HP)
-    /// 
+    ///
     /// RETURNS:
     /// Final ATK value for this unit (used in damage stream calculation)
     /// </summary>

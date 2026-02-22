@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 544b0b781203c493fb7f12514f7ccfe6, type: 3}
+  m_Name: Perk_Stopping_Power
+  m_EditorClassIdentifier: Assembly-CSharp::PerkDefinition
+  perkId: stopping_power
+  displayName: Stopping Power
+  description: Increase ATK of infantry by 1 each tier
+  maxTier: 5
+  costPerTier: 64000000c8000000900100002003000040060000
+  effectType: 3
+  effectAmountPerTier: 1
+  targetUnitType: 0
+  infinitePurchases: 0
+  iconSprite: {fileID: 0}

@@ -14,9 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
   cardName: Tank
   type: 1
-  cost: 8
-  hp: 16
-  atk: 10
+  cost: 5
+  hp: 150
+  atk: 18
+  rarity: 0
   ability: 7
   countsAsVehicle: 0
   abilityParams:
@@ -28,8 +29,9 @@ MonoBehaviour:
   preemptiveTargetType: 0
   preemptiveDamage: 0
   targetBackRowOnly: 0
-  worldPrefabA: {fileID: 6140768643686975806, guid: 08b602f01fdda43a8adec01edc2a24fb, type: 3}
-  worldPrefabB: {fileID: 6405420726917843059, guid: 0b3a80492485e44eaaa513c252ee0819, type: 3}
+  worldPrefabA: {fileID: 6128817391041598500, guid: 0a379a13a169940a1a40ec28b5b8b6ec, type: 3}
+  worldPrefabB: {fileID: 3897892185010300222, guid: b2a100965454045678482b991129122f, type: 3}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: 0}
   abilityDescription: 
+  Definition: {fileID: 0}

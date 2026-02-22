@@ -17,6 +17,7 @@ MonoBehaviour:
   cost: 0
   hp: 0
   atk: 0
+  rarity: 0
   ability: 0
   countsAsVehicle: 0
   abilityParams:
@@ -32,4 +33,5 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: -989085045499774128, guid: 5a90930534d8947c6b1e87c32d65c04a, type: 3}
-  abilityDescription: 
+  abilityDescription: 'infantry row recovers 50% HP '
+  Definition: {fileID: 0}

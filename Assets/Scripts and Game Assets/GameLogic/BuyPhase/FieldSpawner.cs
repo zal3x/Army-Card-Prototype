@@ -31,17 +31,23 @@ public class FieldSpawner : MonoBehaviour
    [SerializeField] private Transform[] infantryRowA;
    [SerializeField] private Transform[] vehicleRowA;
    [SerializeField] private Transform[] airRowA;
+   [Tooltip("Used on GroundOnly battlefields where Ranged has its own row")]
+   [SerializeField] private Transform[] rangedRowA;
 
 
    [Header("Player B spawn rows (left-to-right order)")]
    [SerializeField] private Transform[] infantryRowB;
    [SerializeField] private Transform[] vehicleRowB;
    [SerializeField] private Transform[] airRowB;
+   [Tooltip("Used on GroundOnly battlefields where Ranged has its own row")]
+   [SerializeField] private Transform[] rangedRowB;
 
 
   // Track world health bars by UnitId (optional component on prefab)
 private Dictionary<int, WorldHealthBar> healthBarsByUnitId = new Dictionary<int, WorldHealthBar>();
 
+// Track spawn order for visual layering (later spawns appear in front)
+private int nextSortingOrder = 10; // Start at base sorting order (matches prefab default)
 
 
    // ========================================
@@ -62,9 +68,11 @@ private Dictionary<int, WorldHealthBar> healthBarsByUnitId = new Dictionary<int,
    private readonly HashSet<int> occupiedSlotsInfA = new HashSet<int>();
    private readonly HashSet<int> occupiedSlotsVehA = new HashSet<int>();
    private readonly HashSet<int> occupiedSlotsAirA = new HashSet<int>();
+   private readonly HashSet<int> occupiedSlotsRangedA = new HashSet<int>();
    private readonly HashSet<int> occupiedSlotsInfB = new HashSet<int>();
    private readonly HashSet<int> occupiedSlotsVehB = new HashSet<int>();
    private readonly HashSet<int> occupiedSlotsAirB = new HashSet<int>();
+   private readonly HashSet<int> occupiedSlotsRangedB = new HashSet<int>();
 
 
    // NEW: Track reserved slots (claimed but not yet spawned - for card flight)
@@ -170,7 +178,14 @@ UnitType spawnRowType = GetDefaultRowForCardType(def.type);
    {
        // Use reserved slot
        GameObject go = Instantiate(prefabToSpawn, reservation.position, reservation.rotation);
-      
+
+       // Apply scale from spawn point if available
+       Transform reservedSlot = FindSlotTransform(reservation.unitType, reservation.side, reservation.slotIndex);
+       if (reservedSlot != null)
+       {
+           ApplySpawnPointScale(go, reservedSlot);
+       }
+
        if (unitId >= 0)
        {
            RegisterSpawn(unitId, go, reservation.unitType, reservation.side, reservation.slotIndex);
@@ -199,9 +214,13 @@ UnitType spawnRowType = GetDefaultRowForCardType(def.type);
 
    // Instantiate the visual at the spawn point
    GameObject go2 = Instantiate(prefabToSpawn, slot.position, slot.rotation);
- var handle = go2.GetComponent<UnitWorldHandle>();
-if (handle == null) handle = go2.AddComponent<UnitWorldHandle>();
-handle.Init(unitId, side, def.type);
+
+   // Apply scale from spawn point if available (non-destructive to prefab)
+   ApplySpawnPointScale(go2, slot);
+
+   var handle = go2.GetComponent<UnitWorldHandle>();
+   if (handle == null) handle = go2.AddComponent<UnitWorldHandle>();
+   handle.Init(unitId, side, def.type);
 
 
 
@@ -345,6 +364,12 @@ UnitType spawnRowType = GetDefaultRowForCardType(cardType);
        // Instantiate at reserved position
        GameObject go = Instantiate(prefabToSpawn, reservation.position, reservation.rotation);
 
+       // Apply scale from spawn point if available
+       Transform reservedSlot = FindSlotTransform(reservation.unitType, reservation.side, reservation.slotIndex);
+       if (reservedSlot != null)
+       {
+           ApplySpawnPointScale(go, reservedSlot);
+       }
 
        // Optionally start hidden
        if (startHidden)
@@ -421,7 +446,7 @@ UnitType spawnRowType = GetDefaultRowForCardType(cardType);
 /// <param name="unitId">Unit instance ID</param>
 /// <param name="newSlotIndex">New slot index in its current row</param>
 /// <param name="animate">If true, animates the movement. If false, instant teleport.</param>
-/// <param name="duration">Animation duration (only used if animate=true)</param>
+/// <param name="duration">Animation duration (only used if animate=true and not using global settings)</param>
 public void MoveUnitToSlot(int unitId, int newSlotIndex, bool animate = true, float duration = 0.3f)
 {
    // Find the unit's visual and current slot info
@@ -441,7 +466,7 @@ public void MoveUnitToSlot(int unitId, int newSlotIndex, bool animate = true, fl
 
    // Get the target slot transform
    Transform[] row = GetRowArray(currentSlot.unitType, currentSlot.side);
-  
+
    if (row == null || newSlotIndex < 0 || newSlotIndex >= row.Length)
    {
        Debug.LogWarning($"[FieldSpawner] Invalid slot index {newSlotIndex} for unit {unitId}");
@@ -474,8 +499,13 @@ public void MoveUnitToSlot(int unitId, int newSlotIndex, bool animate = true, fl
    // Move the visual
    if (animate && duration > 0f)
    {
+       // Use global settings if available
+       float effectiveDuration = duration;
+       if (CombatVisualSettings.Instance != null)
+           effectiveDuration = CombatVisualSettings.Instance.rearrangementMoveDuration;
+
        // Animate movement with LeanTween
-       LeanTween.move(visual, targetSlot.position, duration)
+       LeanTween.move(visual, targetSlot.position, effectiveDuration)
            .setEase(LeanTweenType.easeInOutQuad);
    }
    else
@@ -499,7 +529,7 @@ public void MoveUnitToSlot(int unitId, int newSlotIndex, bool animate = true, fl
 /// <param name="unitIdsInRowA">Unit IDs currently in rowA (after swap in simulation)</param>
 /// <param name="unitIdsInRowB">Unit IDs currently in rowB (after swap in simulation)</param>
 /// <param name="animate">If true, animates the swap</param>
-/// <param name="duration">Animation duration</param>
+/// <param name="duration">Animation duration (only used if not using global settings)</param>
 public void SwapRowVisuals(
    PlayerSide side,
    RowType rowA,
@@ -513,8 +543,10 @@ public void SwapRowVisuals(
 UnitType typeA = RowTypeToUnitType(side, rowA);
 UnitType typeB = RowTypeToUnitType(side, rowB);
 
-
-
+   // Use global settings if available
+   float effectiveDuration = duration;
+   if (CombatVisualSettings.Instance != null)
+       effectiveDuration = CombatVisualSettings.Instance.rowSwapDuration;
 
    Transform[] slotsA = GetRowArray(typeA, side);
    Transform[] slotsB = GetRowArray(typeB, side);
@@ -559,9 +591,9 @@ UnitType typeB = RowTypeToUnitType(side, rowB);
 
 
        // Animate or teleport
-       if (animate && duration > 0f)
+       if (animate && effectiveDuration > 0f)
        {
-           LeanTween.move(visual, targetPos, duration).setEase(LeanTweenType.easeInOutQuad);
+           LeanTween.move(visual, targetPos, effectiveDuration).setEase(LeanTweenType.easeInOutQuad);
        }
        else
        {
@@ -574,7 +606,7 @@ UnitType typeB = RowTypeToUnitType(side, rowB);
    for (int i = 0; i < unitIdsInRowB.Length; i++)
    {
        int unitId = unitIdsInRowB[i];
-      
+
        if (!visualsByUnitId.TryGetValue(unitId, out GameObject visual) || visual == null)
            continue;
 
@@ -609,9 +641,9 @@ UnitType typeB = RowTypeToUnitType(side, rowB);
 
 
        // Animate or teleport
-       if (animate && duration > 0f)
+       if (animate && effectiveDuration > 0f)
        {
-           LeanTween.move(visual, targetPos, duration).setEase(LeanTweenType.easeInOutQuad);
+           LeanTween.move(visual, targetPos, effectiveDuration).setEase(LeanTweenType.easeInOutQuad);
        }
        else
        {
@@ -703,6 +735,10 @@ private UnitType RowTypeToUnitType(PlayerSide side, RowType row)
    var slots = GetRowArray(laneType, side);
    if (slots == null) return;
 
+   // Use global settings if available
+   float effectiveDuration = duration;
+   if (CombatVisualSettings.Instance != null)
+       effectiveDuration = CombatVisualSettings.Instance.rearrangementMoveDuration;
 
    // 1) Clear occupied indices for this lane+side
    var occ = GetOccupiedSet(laneType, side);
@@ -724,8 +760,8 @@ private UnitType RowTypeToUnitType(PlayerSide side, RowType row)
 
        // Move visual
        Vector3 targetPos = slots[i].position;
-       if (animate && duration > 0f)
-           LeanTween.move(visual, targetPos, duration).setEase(LeanTweenType.easeInOutQuad);
+       if (animate && effectiveDuration > 0f)
+           LeanTween.move(visual, targetPos, effectiveDuration).setEase(LeanTweenType.easeInOutQuad);
        else
            visual.transform.position = targetPos;
    }
@@ -735,6 +771,15 @@ private UnitType RowTypeToUnitType(PlayerSide side, RowType row)
 // helper to route to the right occupied hashset
 private HashSet<int> GetOccupiedSet(UnitType laneType, PlayerSide side)
 {
+   // Handle Ranged based on battlefield mode
+   if (laneType == UnitType.Ranged)
+   {
+       if (Battlefield.IsRangedSeparate)
+           return side == PlayerSide.A ? occupiedSlotsRangedA : occupiedSlotsRangedB;
+       else
+           return side == PlayerSide.A ? occupiedSlotsVehA : occupiedSlotsVehB;
+   }
+
    return (laneType, side) switch
    {
        (UnitType.Infantry, PlayerSide.A) => occupiedSlotsInfA,
@@ -792,12 +837,41 @@ private HashSet<int> GetOccupiedSet(UnitType laneType, PlayerSide side)
    }
 
 
+   /// <summary>
+   /// Gets all tracked unit IDs for a specific player side.
+   /// Used by CombatPlayback to get units for opening volley before combat resolution modifies player data.
+   /// </summary>
+   public List<int> GetTrackedUnitIdsByPlayer(PlayerSide side)
+   {
+       var result = new List<int>();
+       foreach (var kvp in slotByUnitId)
+       {
+           if (kvp.Value.side == side)
+           {
+               result.Add(kvp.Key);
+           }
+       }
+       return result;
+   }
+
+
    public Vector3 GetUnitPosition(int unitId)
    {
        if (transformsByUnitId.TryGetValue(unitId, out var transform) && transform != null)
            return transform.position;
-      
+
        return Vector3.zero;
+   }
+
+   /// <summary>
+   /// Gets a unit's visual GameObject without removing it.
+   /// Used for attaching effects (like MarkTargetEffect) to units.
+   /// </summary>
+   public GameObject GetUnitVisual(int unitId)
+   {
+       if (visualsByUnitId.TryGetValue(unitId, out GameObject go))
+           return go;
+       return null;
    }
 
 
@@ -847,6 +921,46 @@ private HashSet<int> GetOccupiedSet(UnitType laneType, PlayerSide side)
        }
        healthBarsByUnitId.Remove(unitId);
 
+   }
+
+   /// <summary>
+   /// Clears all spawned unit visuals and resets all tracking data.
+   /// Call this when restarting a battle.
+   /// </summary>
+   public void ClearAllVisuals()
+   {
+       Debug.Log("[FieldSpawner] Clearing all unit visuals...");
+
+       // Destroy all spawned GameObjects
+       foreach (var kvp in visualsByUnitId)
+       {
+           if (kvp.Value != null)
+           {
+               Destroy(kvp.Value);
+           }
+       }
+
+       // Clear all tracking dictionaries
+       visualsByUnitId.Clear();
+       transformsByUnitId.Clear();
+       slotByUnitId.Clear();
+       healthBarsByUnitId.Clear();
+       reservedSlots.Clear();
+
+       // Clear all occupied slot sets
+       occupiedSlotsInfA.Clear();
+       occupiedSlotsVehA.Clear();
+       occupiedSlotsAirA.Clear();
+       occupiedSlotsRangedA.Clear();
+       occupiedSlotsInfB.Clear();
+       occupiedSlotsVehB.Clear();
+       occupiedSlotsAirB.Clear();
+       occupiedSlotsRangedB.Clear();
+
+       // Reset sorting order
+       nextSortingOrder = 10;
+
+       Debug.Log("[FieldSpawner] All visuals cleared.");
    }
 
 
@@ -929,17 +1043,32 @@ public UnitType GetSpawnRowForCardType(UnitType cardType, PlayerSide side, Playe
 
 
    // Resolve which physical row this card's group should spawn into.
-   RowType physicalRow = cardType switch
+   RowType physicalRow;
+   if (cardType == UnitType.Ranged && Battlefield.IsRangedSeparate)
    {
-       UnitType.Infantry => player.InfantryRow,
-       UnitType.Vehicle => player.VehicleRow,
-       UnitType.Ranged => player.VehicleRow,   // Ranged shares Vehicle row
-       UnitType.Air => player.AirRow,
-       _ => player.InfantryRow
-   };
+       // On GroundOnly, Ranged has its own row (uses Back/Air position)
+       physicalRow = player.AirRow;
+   }
+   else
+   {
+       physicalRow = cardType switch
+       {
+           UnitType.Infantry => player.InfantryRow,
+           UnitType.Vehicle => player.VehicleRow,
+           UnitType.Ranged => player.VehicleRow,   // Standard mode: shares Vehicle row
+           UnitType.Air => player.AirRow,
+           _ => player.InfantryRow
+       };
+   }
 
 
    // Convert the physical RowType to the appropriate spawn row array key.
+   // Special case: Ranged on GroundOnly uses dedicated ranged spawn points
+   if (cardType == UnitType.Ranged && Battlefield.IsRangedSeparate)
+   {
+       return UnitType.Ranged;
+   }
+
    return physicalRow switch
    {
        RowType.Front => UnitType.Infantry,
@@ -953,29 +1082,59 @@ public UnitType GetSpawnRowForCardType(UnitType cardType, PlayerSide side, Playe
 /// <summary>
 /// Gets the default spawn row for a card type (before any swaps).
 /// </summary>
+/// <summary>
+/// Gets which spawn row a card type should use.
+/// Respects battlefield configuration for row layout.
+///
+/// STANDARD MODE:
+/// - Infantry → Infantry row (Front)
+/// - Vehicle → Vehicle row (Middle)
+/// - Ranged → Vehicle row (Middle, shared)
+/// - Air → Air row (Back)
+///
+/// GROUND-ONLY MODE:
+/// - Infantry → Infantry row (Front)
+/// - Vehicle → Vehicle row (Middle)
+/// - Ranged → Ranged row (Back, dedicated spawn points)
+/// - Air → (blocked, but returns Air row as fallback)
+/// </summary>
 private UnitType GetDefaultRowForCardType(UnitType cardType)
 {
-   return cardType switch
-   {
-       UnitType.Infantry => UnitType.Infantry,
-       UnitType.Vehicle => UnitType.Vehicle,
-       UnitType.Ranged => UnitType.Vehicle,
-       UnitType.Air => UnitType.Air,
-       _ => UnitType.Infantry
-   };
+    // Check battlefield config for row overrides
+    if (Battlefield.IsRangedSeparate && cardType == UnitType.Ranged)
+    {
+        // On GroundOnly, Ranged uses dedicated ranged spawn points
+        return UnitType.Ranged;
+    }
+
+    return cardType switch
+    {
+        UnitType.Infantry => UnitType.Infantry,
+        UnitType.Vehicle => UnitType.Vehicle,
+        UnitType.Ranged => UnitType.Vehicle,  // Standard mode: shares with Vehicle
+        UnitType.Air => UnitType.Air,
+        _ => UnitType.Infantry
+    };
 }
 
 
 /// <summary>
 /// Gets which logical row a card type should go to.
+/// Respects battlefield configuration.
 /// </summary>
 private RowType GetLogicalRowForCardType(UnitType cardType)
 {
+   // On GroundOnly, Ranged gets its own row (Back)
+   if (cardType == UnitType.Ranged && Battlefield.IsRangedSeparate)
+   {
+       return RowType.Back;
+   }
+
    return cardType switch
    {
        UnitType.Infantry => RowType.Front,
        UnitType.Vehicle => RowType.Middle,
-       UnitType.Ranged => RowType.Middle,
+       UnitType.Ranged => RowType.Middle,  // Standard mode: shares with Vehicle
        UnitType.Air => RowType.Back,
        _ => RowType.Front
    };
@@ -1019,6 +1178,16 @@ private Transform[] GetPhysicalRowArray(PlayerSide side, RowType row)
        if (go != null)
            transformsByUnitId[unitId] = go.transform;
 
+       // Set sorting order for visual layering (later units appear in front)
+       if (go != null)
+       {
+           SpriteRenderer sr = go.GetComponent<SpriteRenderer>();
+           if (sr != null)
+           {
+               sr.sortingOrder = nextSortingOrder;
+               nextSortingOrder++;
+           }
+       }
 
        // Remember which slot this unit is using
        slotByUnitId[unitId] = new SlotInfo
@@ -1071,8 +1240,10 @@ else
            switch (type)
            {
                case UnitType.Infantry: return occupiedSlotsInfA;
-               case UnitType.Vehicle:
-               case UnitType.Ranged: return occupiedSlotsVehA;
+               case UnitType.Vehicle: return occupiedSlotsVehA;
+               case UnitType.Ranged:
+                   // On GroundOnly, Ranged has its own slots; otherwise shares with Vehicle
+                   return Battlefield.IsRangedSeparate ? occupiedSlotsRangedA : occupiedSlotsVehA;
                case UnitType.Air: return occupiedSlotsAirA;
            }
        }
@@ -1081,12 +1252,14 @@ else
            switch (type)
            {
                case UnitType.Infantry: return occupiedSlotsInfB;
-               case UnitType.Vehicle:
-               case UnitType.Ranged: return occupiedSlotsVehB;
+               case UnitType.Vehicle: return occupiedSlotsVehB;
+               case UnitType.Ranged:
+                   // On GroundOnly, Ranged has its own slots; otherwise shares with Vehicle
+                   return Battlefield.IsRangedSeparate ? occupiedSlotsRangedB : occupiedSlotsVehB;
                case UnitType.Air: return occupiedSlotsAirB;
            }
        }
-      
+
        Debug.LogError($"[FieldSpawner] Unknown type/side: {type} / {side}");
        return new HashSet<int>();
    }
@@ -1113,9 +1286,11 @@ public void RebuildSlotOccupancyFromReality(bool clearReservations = true, bool 
    occupiedSlotsInfA.Clear();
    occupiedSlotsVehA.Clear();
    occupiedSlotsAirA.Clear();
+   occupiedSlotsRangedA.Clear();
    occupiedSlotsInfB.Clear();
    occupiedSlotsVehB.Clear();
    occupiedSlotsAirB.Clear();
+   occupiedSlotsRangedB.Clear();
 
 
    // 2) Remove stale entries where visuals were destroyed
@@ -1214,15 +1389,22 @@ UnitType B_BackType   = RowTypeToUnitType(PlayerSide.B, RowType.Back);
 // PHYSICAL rows in the scene:
 // infantryRowX = physical FRONT
 // vehicleRowX  = physical MIDDLE
-// airRowX      = physical BACK
+// airRowX      = physical BACK (standard mode)
+// rangedRowX   = physical BACK (ground-only mode, replaces air)
 AddSlots(infantryRowA, A_FrontType,  PlayerSide.A);
 AddSlots(vehicleRowA,  A_MiddleType, PlayerSide.A);
 AddSlots(airRowA,      A_BackType,   PlayerSide.A);
+// Include ranged slots if they exist (for GroundOnly battlefields)
+if (Battlefield.IsRangedSeparate && rangedRowA != null)
+    AddSlots(rangedRowA, UnitType.Ranged, PlayerSide.A);
 
 
 AddSlots(infantryRowB, B_FrontType,  PlayerSide.B);
 AddSlots(vehicleRowB,  B_MiddleType, PlayerSide.B);
 AddSlots(airRowB,      B_BackType,   PlayerSide.B);
+// Include ranged slots if they exist (for GroundOnly battlefields)
+if (Battlefield.IsRangedSeparate && rangedRowB != null)
+    AddSlots(rangedRowB, UnitType.Ranged, PlayerSide.B);
 
 
 
@@ -1337,17 +1519,28 @@ foreach (var kvp in transformsByUnitId)
 
   private Transform[] GetRowArray(UnitType type, PlayerSide side)
 {
-   // Treat Ranged as Vehicle-group for placement
-   UnitType groupType = (type == UnitType.Ranged) ? UnitType.Vehicle : type;
+   // Handle Ranged specially based on battlefield mode
+   if (type == UnitType.Ranged)
+   {
+       if (Battlefield.IsRangedSeparate)
+       {
+           // GroundOnly mode: Ranged uses dedicated ranged spawn points
+           return side == PlayerSide.A ? rangedRowA : rangedRowB;
+       }
+       else
+       {
+           // Standard mode: Ranged shares Vehicle row
+           type = UnitType.Vehicle;
+       }
+   }
 
-
-   // Find which PHYSICAL row currently hosts this groupType
+   // Find which PHYSICAL row currently hosts this type
    // using rowLayoutMap (RowType -> UnitType)
    if (rowLayoutMap.TryGetValue(side, out var map))
    {
        foreach (var kvp in map) // kvp.Key = RowType, kvp.Value = UnitType hosted there
        {
-           if (kvp.Value == groupType)
+           if (kvp.Value == type)
            {
                return GetPhysicalRowArray(side, kvp.Key);
            }
@@ -1356,7 +1549,7 @@ foreach (var kvp in transformsByUnitId)
 
 
    // fallback to default physical mapping
-   return groupType switch
+   return type switch
    {
        UnitType.Infantry => GetPhysicalRowArray(side, RowType.Front),
        UnitType.Vehicle  => GetPhysicalRowArray(side, RowType.Middle),
@@ -1389,6 +1582,7 @@ public void InitUnitHealthBar(int unitId, int maxHp, int currentHp)
 
 /// <summary>
 /// Update the HP bar to a new HP value. Animates by default.
+/// Called during combat playback to show HP changes in real-time.
 /// </summary>
 public void UpdateUnitHealthBar(int unitId, int maxHp, int newCurrentHp, bool animate = true)
 {
@@ -1406,14 +1600,138 @@ public void UpdateUnitHealthBar(int unitId, int maxHp, int newCurrentHp, bool an
 
     if (hb == null) return;
 
-    // If the bar was never initialized (or max changed), Init is always safe.
-    // WorldHealthBar clamps and sets instantly on Init【turn5file0†WorldHealthBar.cs†L17-L26】.
-    hb.Init(maxHp, hb != null ? Mathf.Clamp(hb != null ? newCurrentHp : newCurrentHp, 0, maxHp) : newCurrentHp);
-
-    if (animate)
-        hb.AnimateTo(newCurrentHp); // smooth tween【turn5file0†WorldHealthBar.cs†L28-L36】
+    // If maxHp changed (shouldn't happen for units, but good safety check),
+    // reinitialize the bar. Otherwise just update the current HP.
+    if (hb.MaxHp != maxHp)
+    {
+        hb.Init(maxHp, newCurrentHp);
+    }
     else
-        hb.SetFillInstant(newCurrentHp);
+    {
+        // Update the bar's HP value with or without animation
+        if (animate)
+            hb.AnimateTo(newCurrentHp); // smooth tween to new HP
+        else
+            hb.SetFillInstant(newCurrentHp); // instant update to new HP
+    }
+}
+
+/// <summary>
+/// Triggers damage visual effects on a unit (flash, shake).
+/// Call this when a unit takes damage during combat.
+/// </summary>
+/// <param name="unitId">Unit instance ID</param>
+/// <param name="damageAmount">Amount of damage taken (for screen shake intensity)</param>
+public void PlayUnitDamageEffects(int unitId, int damageAmount = 0)
+{
+    if (unitId < 0) return;
+
+    // Get the unit visual
+    if (!visualsByUnitId.TryGetValue(unitId, out GameObject visual) || visual == null)
+        return;
+
+    // Trigger unit damage effects (flash + shake)
+    UnitVisualEffects vfx = visual.GetComponentInChildren<UnitVisualEffects>();
+    if (vfx != null)
+    {
+        vfx.PlayDamageEffects();
+    }
+
+    // Camera shake for unit damage removed - only triggers on commander damage now
+}
+
+/// <summary>
+/// Triggers attack visual effects (muzzle flash, projectile) when a unit attacks.
+/// Call this from CombatPlayback when a unit deals damage.
+/// </summary>
+/// <param name="attackerUnitId">ID of the attacking unit</param>
+/// <param name="targetUnitId">ID of the target unit (for projectile direction)</param>
+public void PlayUnitAttackEffects(int attackerUnitId, int targetUnitId)
+{
+    // Debug.Log($"[ATTACK] PlayUnitAttackEffects called - Attacker ID: {attackerUnitId}, Target ID: {targetUnitId}. " +
+    //           $"Tracked visuals: {visualsByUnitId.Count}, IDs: [{string.Join(", ", visualsByUnitId.Keys)}]");
+
+    if (attackerUnitId < 0)
+    {
+        Debug.LogWarning($"[ATTACK] Invalid attacker ID: {attackerUnitId}");
+        return;
+    }
+
+    // Get attacker visual
+    if (!visualsByUnitId.TryGetValue(attackerUnitId, out GameObject attackerVisual) || attackerVisual == null)
+    {
+        Debug.LogWarning($"[ATTACK] Could not find visual for attacker ID {attackerUnitId}. " +
+                        $"Available IDs in dictionary: [{string.Join(", ", visualsByUnitId.Keys)}]");
+        return;
+    }
+
+    // Debug.Log($"[ATTACK] Found attacker visual: {attackerVisual.name}");
+
+    // Get target position
+    Vector3 targetPos = Vector3.zero;
+    if (targetUnitId >= 0)
+    {
+        targetPos = GetUnitPosition(targetUnitId);
+        // Debug.Log($"[ATTACK] Target position: {targetPos}");
+    }
+    else
+    {
+        // No specific target - fire towards enemy side based on attacker position
+        Vector3 attackerPos = attackerVisual.transform.position;
+        float direction = attackerPos.x < 0 ? 1f : -1f; // Left side fires right, right side fires left
+        targetPos = attackerPos + new Vector3(direction * 10f, 0f, 0f);
+        // Debug.Log($"[ATTACK] No specific target - firing towards enemy side at {targetPos}");
+    }
+
+    // Trigger attack effects
+    UnitAttackEffects attackFx = attackerVisual.GetComponentInChildren<UnitAttackEffects>();
+    if (attackFx != null)
+    {
+        // Debug.Log($"[ATTACK] Found UnitAttackEffects component on {attackerVisual.name}, calling PlayAttackEffect()");
+        attackFx.PlayAttackEffect(targetPos);
+    }
+    else
+    {
+        Debug.LogWarning($"[ATTACK] NO UnitAttackEffects component found on {attackerVisual.name}! Add the component to your unit prefab.");
+    }
+}
+
+/// <summary>
+/// Triggers attack visual effects (muzzle flash, projectile) when a unit attacks a specific position.
+/// Use this overload when targeting a position directly (e.g., commander display when no enemy units).
+/// </summary>
+/// <param name="attackerUnitId">ID of the attacking unit</param>
+/// <param name="targetPosition">World position to fire at</param>
+public void PlayUnitAttackEffectsAtPosition(int attackerUnitId, Vector3 targetPosition)
+{
+    // Debug.Log($"[ATTACK] PlayUnitAttackEffectsAtPosition called - Attacker ID: {attackerUnitId}, Target Position: {targetPosition}");
+
+    if (attackerUnitId < 0)
+    {
+        Debug.LogWarning($"[ATTACK] Invalid attacker ID: {attackerUnitId}");
+        return;
+    }
+
+    // Get attacker visual
+    if (!visualsByUnitId.TryGetValue(attackerUnitId, out GameObject attackerVisual) || attackerVisual == null)
+    {
+        Debug.LogWarning($"[ATTACK] Could not find visual for attacker ID {attackerUnitId}. " +
+                        $"Available IDs in dictionary: [{string.Join(", ", visualsByUnitId.Keys)}]");
+        return;
+    }
+
+    // Debug.Log($"[ATTACK] Found attacker visual: {attackerVisual.name}, firing at position {targetPosition}");
+
+    // Trigger attack effects
+    UnitAttackEffects attackFx = attackerVisual.GetComponentInChildren<UnitAttackEffects>();
+    if (attackFx != null)
+    {
+        attackFx.PlayAttackEffect(targetPosition);
+    }
+    else
+    {
+        Debug.LogWarning($"[ATTACK] NO UnitAttackEffects component found on {attackerVisual.name}! Add the component to your unit prefab.");
+    }
 }
 
 
@@ -1461,19 +1779,60 @@ public Transform[] GetLaneSlots(UnitType laneType, PlayerSide side)
 
 public int GetRowCapacity(UnitType spawnRowType, PlayerSide side)
 {
-   Transform[] row = spawnRowType switch
-   {
-       UnitType.Infantry => (side == PlayerSide.A) ? infantryRowA : infantryRowB,
-       UnitType.Vehicle  => (side == PlayerSide.A) ? vehicleRowA  : vehicleRowB,
-       UnitType.Air      => (side == PlayerSide.A) ? airRowA      : airRowB,
-       UnitType.Ranged   => (side == PlayerSide.A) ? vehicleRowA  : vehicleRowB, // if ranged shares vehicle row
-       _ => null
-   };
+   Transform[] row;
 
+   if (spawnRowType == UnitType.Ranged)
+   {
+       // Ranged uses dedicated row on GroundOnly, shares Vehicle on Standard
+       if (Battlefield.IsRangedSeparate)
+           row = (side == PlayerSide.A) ? rangedRowA : rangedRowB;
+       else
+           row = (side == PlayerSide.A) ? vehicleRowA : vehicleRowB;
+   }
+   else
+   {
+       row = spawnRowType switch
+       {
+           UnitType.Infantry => (side == PlayerSide.A) ? infantryRowA : infantryRowB,
+           UnitType.Vehicle  => (side == PlayerSide.A) ? vehicleRowA  : vehicleRowB,
+           UnitType.Air      => (side == PlayerSide.A) ? airRowA      : airRowB,
+           _ => null
+       };
+   }
 
    return row?.Length ?? 0;
 }
 
+
+   /// <summary>
+   /// Applies scale from spawn point to spawned unit instance (non-destructive to prefab).
+   /// Checks if the spawn point has SpawnPointScaleData component and applies the scale.
+   /// </summary>
+   private void ApplySpawnPointScale(GameObject spawnedUnit, Transform spawnPoint)
+   {
+       if (spawnedUnit == null || spawnPoint == null) return;
+
+       SpawnPointScaleData scaleData = spawnPoint.GetComponent<SpawnPointScaleData>();
+       if (scaleData != null && scaleData.scaleMultiplier != 1.0f)
+       {
+           spawnedUnit.transform.localScale = Vector3.one * scaleData.scaleMultiplier;
+           Debug.Log($"[FieldSpawner] Applied scale {scaleData.scaleMultiplier}x to spawned unit at {spawnPoint.name}");
+       }
+   }
+
+   /// <summary>
+   /// Finds the Transform of a slot by its type, side, and index.
+   /// Used to retrieve spawn point data for reserved slots.
+   /// </summary>
+   private Transform FindSlotTransform(UnitType type, PlayerSide side, int slotIndex)
+   {
+       Transform[] row = GetRowArray(type, side);
+       if (row != null && slotIndex >= 0 && slotIndex < row.Length)
+       {
+           return row[slotIndex];
+       }
+       return null;
+   }
 
    private void SetVisibility(GameObject go, bool visible)
    {
@@ -1523,13 +1882,15 @@ public int GetRowCapacity(UnitType spawnRowType, PlayerSide side)
 
    public void DebugPrintSlotStatus()
    {
-       Debug.Log($"[FieldSpawner] Slot Status:");
+       Debug.Log($"[FieldSpawner] Slot Status (RangedSeparate={Battlefield.IsRangedSeparate}):");
        Debug.Log($"  A Infantry: {string.Join(",", occupiedSlotsInfA)} / {infantryRowA?.Length ?? 0}");
        Debug.Log($"  A Vehicle:  {string.Join(",", occupiedSlotsVehA)} / {vehicleRowA?.Length ?? 0}");
        Debug.Log($"  A Air:      {string.Join(",", occupiedSlotsAirA)} / {airRowA?.Length ?? 0}");
+       Debug.Log($"  A Ranged:   {string.Join(",", occupiedSlotsRangedA)} / {rangedRowA?.Length ?? 0}");
        Debug.Log($"  B Infantry: {string.Join(",", occupiedSlotsInfB)} / {infantryRowB?.Length ?? 0}");
        Debug.Log($"  B Vehicle:  {string.Join(",", occupiedSlotsVehB)} / {vehicleRowB?.Length ?? 0}");
        Debug.Log($"  B Air:      {string.Join(",", occupiedSlotsAirB)} / {airRowB?.Length ?? 0}");
+       Debug.Log($"  B Ranged:   {string.Join(",", occupiedSlotsRangedB)} / {rangedRowB?.Length ?? 0}");
        Debug.Log($"  Reservations: {reservedSlots.Count}");
    }
 }

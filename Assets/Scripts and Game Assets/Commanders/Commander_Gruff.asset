@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5dab9e22d0e0b41ca840e11b3c8f79bd, type: 3}
+  m_Name: Commander_Gruff
+  m_EditorClassIdentifier: Assembly-CSharp::CommanderDefinition
+  commanderId: 1
+  displayName: Gruff
+  description: 130% Attack, 80% HP
+  mapPortrait: {fileID: 6028775521246864027, guid: 2f463d4a4372b47ce99df6d3c391c74e, type: 3}
+  difficulty: 1
+  deck: {fileID: 11400000, guid: 27f8c56b14fc6494eb38117e05af1548, type: 2}
+  overrideStartingHP: 0
+  startingHP: 2000
+  overrideStartingGold: 0
+  startingGold: 0

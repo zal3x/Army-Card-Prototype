@@ -15,9 +15,10 @@ MonoBehaviour:
   cardName: Infantry
   type: 0
   cost: 1
-  hp: 3
-  atk: 2
-  ability: 8
+  hp: 4
+  atk: 3
+  rarity: 0
+  ability: 1
   countsAsVehicle: 0
   abilityParams:
     Multiplier: 2
@@ -26,10 +27,11 @@ MonoBehaviour:
   specialType: 0
   hasPreemptive: 0
   preemptiveTargetType: 0
-  preemptiveDamage: 0
+  preemptiveDamage: 557
   targetBackRowOnly: 0
-  worldPrefabA: {fileID: 5089311609205565542, guid: 1989fa00d66b34da1922a49cc17eb820, type: 3}
-  worldPrefabB: {fileID: 2739111389617228618, guid: 118dd66f797944c5d86c10cdc4e83b71, type: 3}
-  portraitSprite: {fileID: 6022995573913197648, guid: 19c8589d67fa540fe8d564ec19881a26, type: 3}
+  worldPrefabA: {fileID: 7901401779958034540, guid: ae932635f95dc4ead881cf430cf37ee6, type: 3}
+  worldPrefabB: {fileID: 1780077134756523724, guid: 7a6f11a27f2ab43cf9373a77d1139c2c, type: 3}
+  portraitSprite: {fileID: -5814595784657493680, guid: ea868f36c3fbb42598c03c58f36e54f5, type: 3}
   backgroundSprite: {fileID: 0}
   abilityDescription: 
+  Definition: {fileID: 0}
