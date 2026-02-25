@@ -29,7 +29,7 @@ public class DamageNumberDebugger : MonoBehaviour
         Debug.Log("=== DAMAGE NUMBER DEBUGGER STARTED ===");
         
         // Check if spawner exists
-        DamageNumberSpawner spawner = FindObjectOfType<DamageNumberSpawner>();
+        DamageNumberSpawner spawner = FindAnyObjectByType<DamageNumberSpawner>();
         if (spawner == null)
         {
             Debug.LogError("[DEBUG] No DamageNumberSpawner found in scene!");
@@ -102,7 +102,7 @@ public class DamageNumberDebugger : MonoBehaviour
         Debug.Log("=== CHECKING DAMAGE NUMBER SETUP ===");
         
         // Check spawner
-        var spawner = FindObjectOfType<DamageNumberSpawner>();
+        var spawner = FindAnyObjectByType<DamageNumberSpawner>();
         if (spawner == null)
         {
             Debug.LogError("✗ No DamageNumberSpawner in scene");

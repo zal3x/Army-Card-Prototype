@@ -33,6 +33,15 @@ public class PerkItemUI : MonoBehaviour
     [SerializeField]
     private TMP_Text upgradeButtonText;
 
+    [Header("Image Mode")]
+    [Tooltip("Background art image for perk template display")]
+    [SerializeField]
+    private Image backgroundArtImage;
+
+    [Tooltip("Default perk template sprite (PerkOutline.png, 384x96)")]
+    [SerializeField]
+    private Sprite defaultPerkTemplate;
+
     [Header("Tier Indicators")]
     [SerializeField]
     private Image[] tierIndicators;
@@ -58,6 +67,13 @@ public class PerkItemUI : MonoBehaviour
         onClick = onUpgrade;
 
         if (perk == null) return;
+
+        // Apply perk template background
+        if (backgroundArtImage != null && defaultPerkTemplate != null)
+        {
+            backgroundArtImage.sprite = defaultPerkTemplate;
+            backgroundArtImage.enabled = true;
+        }
 
         // Get current tier from player progress
         int currentTier = PlayerProgressData.Instance?.GetPerkTier(perk) ?? 0;

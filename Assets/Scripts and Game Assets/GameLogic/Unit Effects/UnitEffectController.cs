@@ -89,17 +89,6 @@ public class UnitEffectController : MonoBehaviour
 
         _mainPropBlock = new MaterialPropertyBlock();
 
-        // Zero out _EffectAmount on ALL SpriteRenderers in the hierarchy so any shader
-        // using that property (RimPulse, HoloFoil, etc.) starts fully invisible,
-        // regardless of material defaults baked into the prefab.
-        var tempBlock = new MaterialPropertyBlock();
-        foreach (var sr in GetComponentsInChildren<SpriteRenderer>(true))
-        {
-            sr.GetPropertyBlock(tempBlock);
-            tempBlock.SetFloat(PropEffectAmount, 0f);
-            sr.SetPropertyBlock(tempBlock);
-        }
-
         // Load shaders
         var outlineShader = Shader.Find("Cards/SpriteOutline");
         var holoShader    = Shader.Find("Cards/HoloFoil_Soft");
@@ -145,12 +134,29 @@ public class UnitEffectController : MonoBehaviour
             _holoRenderer.sortingLayerID = _mainRenderer.sortingLayerID;
             _holoRenderer.sortingOrder   = baseSortOrder + 1;
 
+            // Start with _FoilAmount = 0 on the material itself so the shader default
+            // (0.55) never shows even if the renderer is accidentally enabled.
             _holoMat = new Material(holoShader);
+            _holoMat.SetFloat("_FoilAmount", 0f);
             _holoRenderer.material = _holoMat;
 
             _holoPropBlock = new MaterialPropertyBlock();
             _holoRenderer.SetPropertyBlock(_holoPropBlock);
             _holoRenderer.enabled = false;
+        }
+
+        // Zero out all effect-controlling shader properties on EVERY SpriteRenderer
+        // now that child renderers have been created and are included in the search.
+        // This covers both the original prefab renderers AND the children we just made.
+        var tempBlock = new MaterialPropertyBlock();
+        foreach (var sr in GetComponentsInChildren<SpriteRenderer>(true))
+        {
+            sr.GetPropertyBlock(tempBlock);
+            tempBlock.SetFloat(PropEffectAmount, 0f);  // RimPulse glow gate
+            tempBlock.SetFloat(PropFoilAmount,   0f);  // HoloFoil shimmer gate
+            tempBlock.SetFloat(PropRimIntensity, 0f);  // rim glow strength
+            tempBlock.SetFloat(PropPulseAmount,  0f);  // pulse strength
+            sr.SetPropertyBlock(tempBlock);
         }
     }
 
@@ -316,5 +322,13 @@ public class UnitEffectController : MonoBehaviour
 
         if (_holoRenderer != null && _holoRenderer.sprite != currentSprite)
             _holoRenderer.sprite = currentSprite;
+
+        // Keep child sorting orders in sync with main renderer
+        // (FieldSpawner may update sortingOrder after UnitEffectController is initialized)
+        int baseSortOrder = _mainRenderer.sortingOrder;
+        if (_outlineRenderer != null && _outlineRenderer.sortingOrder != baseSortOrder - 1)
+            _outlineRenderer.sortingOrder = baseSortOrder - 1;
+        if (_holoRenderer != null && _holoRenderer.sortingOrder != baseSortOrder + 1)
+            _holoRenderer.sortingOrder = baseSortOrder + 1;
     }
 }

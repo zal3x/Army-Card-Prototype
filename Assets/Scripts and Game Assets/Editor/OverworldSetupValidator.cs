@@ -104,7 +104,7 @@ public class OverworldSetupValidator : EditorWindow
         info.Clear();
 
         // 1. Check for GameStateManager
-        var gsm = FindObjectOfType<GameStateManager>();
+        var gsm = FindAnyObjectByType<GameStateManager>();
         if (gsm == null)
         {
             errors.Add("GameStateManager NOT FOUND in scene!\n\nThis is why nothing happens when you win. Click 'Create GameStateManager' below to fix.");
@@ -124,7 +124,7 @@ public class OverworldSetupValidator : EditorWindow
         }
 
         // 2. Check for BattleTestRunner
-        var btr = FindObjectOfType<BattleTestRunner>();
+        var btr = FindAnyObjectByType<BattleTestRunner>();
         if (btr == null)
         {
             warnings.Add("BattleTestRunner not found - are you in the battle scene?");
@@ -135,7 +135,7 @@ public class OverworldSetupValidator : EditorWindow
         }
 
         // 3. Check for individual screens in scene
-        var victoryScreen = FindObjectOfType<VictoryDefeatScreen>(true);
+        var victoryScreen = FindAnyObjectByType<VictoryDefeatScreen>(FindObjectsInactive.Include);
         if (victoryScreen == null)
         {
             errors.Add("VictoryDefeatScreen component NOT FOUND in scene!\n\nCreate a Panel with VictoryDefeatScreen.cs attached.");
@@ -152,7 +152,7 @@ public class OverworldSetupValidator : EditorWindow
             CheckReference(vso, "continueButton", "Continue Button");
         }
 
-        var warCabinet = FindObjectOfType<WarCabinetScreen>(true);
+        var warCabinet = FindAnyObjectByType<WarCabinetScreen>(FindObjectsInactive.Include);
         if (warCabinet == null)
         {
             warnings.Add("WarCabinetScreen not found in scene");
@@ -175,7 +175,7 @@ public class OverworldSetupValidator : EditorWindow
         }
 
         // 5. Check PerkSystem and DoctrineSystem
-        var perkSys = FindObjectOfType<PerkSystem>();
+        var perkSys = FindAnyObjectByType<PerkSystem>();
         if (perkSys == null)
         {
             warnings.Add("PerkSystem not found in scene - perks won't work");
@@ -185,7 +185,7 @@ public class OverworldSetupValidator : EditorWindow
             info.Add($"PerkSystem found on '{perkSys.gameObject.name}'");
         }
 
-        var doctrineSys = FindObjectOfType<DoctrineSystem>();
+        var doctrineSys = FindAnyObjectByType<DoctrineSystem>();
         if (doctrineSys == null)
         {
             warnings.Add("DoctrineSystem not found in scene - doctrines won't work");
@@ -231,7 +231,7 @@ public class OverworldSetupValidator : EditorWindow
 
     private void CreateGameStateManager()
     {
-        var existing = FindObjectOfType<GameStateManager>();
+        var existing = FindAnyObjectByType<GameStateManager>();
         if (existing != null)
         {
             EditorUtility.DisplayDialog("Already Exists",
@@ -244,11 +244,11 @@ public class OverworldSetupValidator : EditorWindow
         go.AddComponent<GameStateManager>();
 
         // Also add PerkSystem and DoctrineSystem if missing
-        if (FindObjectOfType<PerkSystem>() == null)
+        if (FindAnyObjectByType<PerkSystem>() == null)
         {
             go.AddComponent<PerkSystem>();
         }
-        if (FindObjectOfType<DoctrineSystem>() == null)
+        if (FindAnyObjectByType<DoctrineSystem>() == null)
         {
             go.AddComponent<DoctrineSystem>();
         }
@@ -262,7 +262,7 @@ public class OverworldSetupValidator : EditorWindow
 
     private void WireScreenReferences()
     {
-        var gsm = FindObjectOfType<GameStateManager>();
+        var gsm = FindAnyObjectByType<GameStateManager>();
         if (gsm == null)
         {
             EditorUtility.DisplayDialog("Error", "Create GameStateManager first!", "OK");
@@ -273,7 +273,7 @@ public class OverworldSetupValidator : EditorWindow
         int wired = 0;
 
         // Find and wire VictoryDefeatScreen
-        var victory = FindObjectOfType<VictoryDefeatScreen>(true);
+        var victory = FindAnyObjectByType<VictoryDefeatScreen>(FindObjectsInactive.Include);
         if (victory != null)
         {
             var prop = so.FindProperty("victoryDefeatScreen");
@@ -285,7 +285,7 @@ public class OverworldSetupValidator : EditorWindow
         }
 
         // Find and wire WarCabinetScreen
-        var warCabinet = FindObjectOfType<WarCabinetScreen>(true);
+        var warCabinet = FindAnyObjectByType<WarCabinetScreen>(FindObjectsInactive.Include);
         if (warCabinet != null)
         {
             var prop = so.FindProperty("warCabinetScreen");
@@ -297,7 +297,7 @@ public class OverworldSetupValidator : EditorWindow
         }
 
         // Find and wire BarracksScreen
-        var barracks = FindObjectOfType<BarracksScreen>(true);
+        var barracks = FindAnyObjectByType<BarracksScreen>(FindObjectsInactive.Include);
         if (barracks != null)
         {
             var prop = so.FindProperty("barracksScreen");
@@ -309,7 +309,7 @@ public class OverworldSetupValidator : EditorWindow
         }
 
         // Find and wire WorldMapScreen
-        var worldMap = FindObjectOfType<WorldMapScreen>(true);
+        var worldMap = FindAnyObjectByType<WorldMapScreen>(FindObjectsInactive.Include);
         if (worldMap != null)
         {
             var prop = so.FindProperty("worldMapScreen");
@@ -336,7 +336,7 @@ public class OverworldSetupValidator : EditorWindow
                 }
 
                 // Also wire to PerkSystem and DoctrineSystem
-                var perkSys = FindObjectOfType<PerkSystem>();
+                var perkSys = FindAnyObjectByType<PerkSystem>();
                 if (perkSys != null)
                 {
                     var pso = new SerializedObject(perkSys);
@@ -349,7 +349,7 @@ public class OverworldSetupValidator : EditorWindow
                     }
                 }
 
-                var doctrineSys = FindObjectOfType<DoctrineSystem>();
+                var doctrineSys = FindAnyObjectByType<DoctrineSystem>();
                 if (doctrineSys != null)
                 {
                     var dso = new SerializedObject(doctrineSys);
@@ -374,7 +374,7 @@ public class OverworldSetupValidator : EditorWindow
 
     private void SelectGameStateManager()
     {
-        var gsm = FindObjectOfType<GameStateManager>();
+        var gsm = FindAnyObjectByType<GameStateManager>();
         if (gsm != null)
         {
             Selection.activeGameObject = gsm.gameObject;

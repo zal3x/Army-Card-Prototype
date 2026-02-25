@@ -384,7 +384,7 @@ public class BattlefieldRowDividers : MonoBehaviour
     {
         if (fieldSpawner == null)
         {
-            fieldSpawner = FindObjectOfType<FieldSpawner>();
+            fieldSpawner = FindAnyObjectByType<FieldSpawner>();
         }
 
         if (fieldSpawner == null)

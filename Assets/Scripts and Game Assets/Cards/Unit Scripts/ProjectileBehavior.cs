@@ -6,7 +6,7 @@ using UnityEngine;
 /// journey even if the firing unit is destroyed mid-combat.
 /// </summary>
 public class ProjectileBehavior : MonoBehaviour
-{
+{ 
     private Vector3 startPosition;
     private Vector3 targetPosition;
     private float speed;

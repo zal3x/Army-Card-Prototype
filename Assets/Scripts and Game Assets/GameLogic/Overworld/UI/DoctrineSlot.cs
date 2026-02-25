@@ -30,6 +30,15 @@ public class DoctrineSlot : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
     [SerializeField]
     private TMP_Text slotNumberText;
 
+    [Header("Image Mode")]
+    [Tooltip("Background art image for doctrine template display")]
+    [SerializeField]
+    private Image backgroundArtImage;
+
+    [Tooltip("Default doctrine template sprite (DoctineDesign.png, 128x192)")]
+    [SerializeField]
+    private Sprite defaultDoctrineTemplate;
+
     [Header("Empty State")]
     [SerializeField]
     private Sprite emptySlotSprite;
@@ -64,6 +73,21 @@ public class DoctrineSlot : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
         // Slot number
         if (slotNumberText != null)
             slotNumberText.text = (index + 1).ToString();
+
+        // Apply doctrine template background — only show when a doctrine is equipped
+        if (backgroundArtImage != null)
+        {
+            if (doctrine != null && defaultDoctrineTemplate != null)
+            {
+                backgroundArtImage.sprite = defaultDoctrineTemplate;
+                backgroundArtImage.enabled = true;
+                backgroundArtImage.color = Color.white;
+            }
+            else
+            {
+                backgroundArtImage.enabled = false;
+            }
+        }
 
         if (doctrine != null)
         {

@@ -21,4 +21,4 @@ MonoBehaviour:
   overrideStartingHP: 0
   startingHP: 2000
   overrideStartingGold: 1
-  startingGold: 0
+  startingGold: 1

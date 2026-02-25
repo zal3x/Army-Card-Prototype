@@ -630,6 +630,7 @@ private void UpdateGoldDisplayB(int gold)
     {
         UpdateBothCommanders(playerA, playerB);
         RefreshArmyStats(playerA, playerB, immediate);
+        UpdateBothGold(playerA, playerB);
     }
 
     /// <summary>

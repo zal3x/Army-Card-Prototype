@@ -87,7 +87,7 @@ public class CommanderPanelFixer : EditorWindow
 
     private void AutoFind()
     {
-        var all = FindObjectsOfType<CommanderDisplay>();
+        var all = FindObjectsByType<CommanderDisplay>(FindObjectsSortMode.None);
         if (all.Length >= 2)
         {
             panelA = all[0];

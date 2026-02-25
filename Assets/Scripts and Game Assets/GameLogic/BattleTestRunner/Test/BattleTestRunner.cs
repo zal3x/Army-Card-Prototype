@@ -231,6 +231,9 @@ public BattleHUD battleHUD;
 public RearrangementUI_SwapRows rearrangeUI;
 [SerializeField] public SpecialCards specialCards;
 
+// Pending ability feedback action: set by TryBuyHandCardByIndex, consumed by flight callback
+private System.Action _pendingAbilityFeedback;
+
 
 [Header("Commanders (Optional)")]
 [SerializeField] private CommanderDefinition playerACommander;
@@ -785,6 +788,9 @@ else
 ApplyCommanderStartingOverrides(playerA, playerACommander);
 ApplyCommanderStartingOverrides(playerB, playerBCommander);
 
+// Sync HUD with any overridden gold values
+if (battleHUD != null)
+    battleHUD.UpdateBothGold(playerA, playerB);
 
     // Load decks AFTER commander assignment (so LoadDecks can apply permanent bonuses)
     LoadDecks();
@@ -795,7 +801,7 @@ ApplyCommanderStartingOverrides(playerB, playerBCommander);
     // Auto-find references if not assigned in Inspector (BEFORE Infantry Surge needs them)
     if (combatVFXSpawner == null)
     {
-        combatVFXSpawner = FindObjectOfType<CombatVFXSpawner>();
+        combatVFXSpawner = FindAnyObjectByType<CombatVFXSpawner>();
         if (combatVFXSpawner == null)
         {
             Debug.LogWarning("[BattleTestRunner] CombatVFXSpawner not found in scene! On-play destruction effects will not work.");
@@ -804,7 +810,7 @@ ApplyCommanderStartingOverrides(playerB, playerBCommander);
 
     if (fieldSpawner == null)
     {
-        fieldSpawner = FindObjectOfType<FieldSpawner>();
+        fieldSpawner = FindAnyObjectByType<FieldSpawner>();
     }
 
     // Apply Infantry Surge doctrine AFTER BuildCardDefinitionLookup and fieldSpawner are ready
@@ -855,6 +861,10 @@ public void RestartBattle()
     // Optional starting stat overrides (HP/Gold)
     ApplyCommanderStartingOverrides(playerA, playerACommander);
     ApplyCommanderStartingOverrides(playerB, playerBCommander);
+
+    // Sync HUD with any overridden gold values
+    if (battleHUD != null)
+        battleHUD.UpdateBothGold(playerA, playerB);
 
     // Reload decks
     LoadDecks();
@@ -1482,7 +1492,18 @@ ResetLayoutIfBoardEmpty(playerB, PlayerSide.B);
     /// </summary>
     private IEnumerator GoldPhase(int round, RoundReport roundReport)
     {
-        int goldGain = (round == 1) ? startingGoldRound1 : goldPerRound;
+        // Round 1 base gold is skipped for players whose commander overrides starting gold
+        // (their gold was already set by ApplyCommanderStartingOverrides)
+        int baseGoldA = (round == 1) ? startingGoldRound1 : goldPerRound;
+        int baseGoldB = baseGoldA;
+
+        if (round == 1)
+        {
+            if (playerACommander != null && playerACommander.overrideStartingGold)
+                baseGoldA = 0;
+            if (playerBCommander != null && playerBCommander.overrideStartingGold)
+                baseGoldB = 0;
+        }
 
         // Add doctrine bonuses (Military Industrial Complex: +gold at battle start)
         int doctrineGoldA = (round == 1) ? (DoctrineSystem.GetStartingGoldBonus?.Invoke(playerA) ?? 0) : 0;
@@ -1492,8 +1513,8 @@ ResetLayoutIfBoardEmpty(playerB, PlayerSide.B);
         int perkGoldA = PerkSystem.GetBonusGoldPerRound?.Invoke(playerA) ?? 0;
         int perkGoldB = 0; // AI doesn't have perks
 
-        int totalGainA = goldGain + doctrineGoldA + perkGoldA;
-        int totalGainB = goldGain + doctrineGoldB + perkGoldB;
+        int totalGainA = baseGoldA + doctrineGoldA + perkGoldA;
+        int totalGainB = baseGoldB + doctrineGoldB + perkGoldB;
 
         playerA.Gold += totalGainA;
         playerB.Gold += totalGainB;
@@ -1811,6 +1832,9 @@ if (!isSpecial)
     if (placedUnitId >= 0 && fieldSpawner != null)
         fieldSpawner.SetUnitVisibility(placedUnitId, false);
 
+    // Capture and clear the pending ability feedback so it fires after unit is revealed
+    var abilityFeedback = _pendingAbilityFeedback;
+    _pendingAbilityFeedback = null;
 
     if (placedUnitId >= 0 && CardFlightManager.Instance != null && purchasedVisual != null)
     {
@@ -1819,8 +1843,14 @@ if (!isSpecial)
             purchasedVisual,
             null,
             spawnPos,
-            PlayerSide.A
+            PlayerSide.A,
+            onUnitRevealed: abilityFeedback
         );
+    }
+    else if (abilityFeedback != null)
+    {
+        // No flight animation — fire immediately as fallback
+        abilityFeedback.Invoke();
     }
 }
 else
@@ -2067,9 +2097,6 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
     // NOTE: OnUnitDeployed removed - new combat system doesn't expand health pool
     // p.OnUnitDeployed(unit);
 
-    // ABILITY ACTIVATION FEEDBACK: Show floating numbers for active abilities
-    CheckAndShowAbilityActivations(p, unit, targetRow);
-
     // DISCARD
     p.Deck.Discard(chosen);
 
@@ -2077,17 +2104,26 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
     Debug.Log($"[BUY] {p.Name} buys CARD: {chosen.Name} (Type={chosen.Type}, Cost={chosen.Cost}, EffectiveCost={effectiveCost}) -> {targetRow} | UnitId=[{unit.InstanceId}] | GoldAfterBuy={p.Gold}");
 
 
+    // Execute on-play abilities immediately (they affect game state: gold, destroy units, etc.)
     AbilitySystem.ExecuteOnPlay(p, GetOpponent(p), unit, this);
-
 
     if (battleHUD != null)
     {
-        // NOTE: OnUnitDeployed removed - new combat system doesn't expand health pool
-        // battleHUD.OnUnitDeployed(p, unit, playerA, playerB);
         battleHUD.UpdateBothGold(playerA, playerB);
         battleHUD.RefreshArmyStats(playerA, playerB);
     }
 
+    // Store ability feedback as pending action — will be triggered after card flight lands
+    // and unit is revealed (via CardFlightManager.onUnitRevealed callback)
+    Player capturedPlayer = p;
+    Unit capturedUnit = unit;
+    RowType capturedRow = targetRow;
+    _pendingAbilityFeedback = () =>
+    {
+        CheckAndShowAbilityActivations(capturedPlayer, capturedUnit, capturedRow);
+        RefreshBuyPhaseAbilityEffects(capturedPlayer, GetOpponent(capturedPlayer));
+        RefreshBuyPhaseAbilityEffects(GetOpponent(capturedPlayer), capturedPlayer);
+    };
 
     boughtCard = chosen;
     return true;
@@ -2285,15 +2321,22 @@ private bool TryBuyHandCardByIndex(Player p, int handIndex, out int placedUnitId
     // NOTE: OnUnitDeployed removed - new combat system doesn't expand health pool
     // p.OnUnitDeployed(unit);
 
-    // ABILITY ACTIVATION FEEDBACK: Show floating numbers for active abilities
-    CheckAndShowAbilityActivations(p, unit, chosenRow);
-
     Debug.Log($"[BUY-AI] {p.Name} buys {chosen.Name} (Cost={chosen.Cost}, EffectiveCost={effectiveCost}) -> {chosenRow} | UnitId=[{unit.InstanceId}] | GoldAfterBuy={p.Gold}");
 
-
-    // ON-PLAY TRIGGERS
+    // ON-PLAY TRIGGERS (execute immediately — affects game state)
     AbilitySystem.ExecuteOnPlay(p, GetOpponent(p), unit, this);
 
+    // Delay ability text + shader effects so they appear after the unit visual spawns
+    Player aiPlayer = p;
+    Unit aiUnit = unit;
+    RowType aiRow = chosenRow;
+    float aiDelay = (CardFlightManager.Instance != null) ? CardFlightManager.Instance.abilityEffectDelay : 0.15f;
+    LeanTween.delayedCall(gameObject, aiDelay, () =>
+    {
+        CheckAndShowAbilityActivations(aiPlayer, aiUnit, aiRow);
+        RefreshBuyPhaseAbilityEffects(aiPlayer, GetOpponent(aiPlayer));
+        RefreshBuyPhaseAbilityEffects(GetOpponent(aiPlayer), aiPlayer);
+    });
 
     // Update HUD after AI purchase
     if (battleHUD != null)
@@ -2891,6 +2934,91 @@ private bool ShouldShowAbilityFeedback(Unit unit, AbilityActivationInfo activati
 
         default:
             return true;
+    }
+}
+
+// =====================================================
+// BUY-PHASE ABILITY VISUAL EFFECTS
+// =====================================================
+
+/// <summary>
+/// Re-evaluates and applies/removes ability shader effects for ALL alive units
+/// belonging to a player. Call after each unit placement (and for both players,
+/// since placing a Vehicle can activate enemy ArmorPiercing, etc.).
+///
+/// Combat-only abilities (Counterattack, Persist) are skipped here.
+/// </summary>
+private void RefreshBuyPhaseAbilityEffects(Player player, Player enemy)
+{
+    if (player == null || fieldSpawner == null) return;
+
+    foreach (var rowKvp in player.Rows)
+    {
+        RowType rowType = rowKvp.Key;
+        var row = rowKvp.Value;
+
+        // Build alive-count-by-name for this row (needed by ThreeOfAKind etc.)
+        var aliveCountByName = new Dictionary<string, int>();
+        foreach (var u in row.Units)
+        {
+            if (u == null || !u.IsAlive) continue;
+            if (!aliveCountByName.ContainsKey(u.Name))
+                aliveCountByName[u.Name] = 0;
+            aliveCountByName[u.Name]++;
+        }
+
+        foreach (var unit in row.Units)
+        {
+            if (unit == null || !unit.IsAlive) continue;
+
+            // --- SPECIAL CARD EFFECTS (Barbed Wire, Land Mines, etc.) ---
+            // Apply to any unit affected by active special cards, regardless of ability
+            if (specialCards != null)
+                specialCards.ApplyActiveSpecialCardEffects(player, unit);
+
+            // --- ABILITY EFFECTS ---
+            if (unit.Ability == UnitAbilityType.None) continue;
+
+            string effectId = unit.Ability.ToString();
+
+            // Combat-only abilities: skip during buy phase
+            if (unit.Ability == UnitAbilityType.Counterattack
+                || unit.Ability == UnitAbilityType.Persist)
+                continue;
+
+            // Conditional ATK abilities: check if condition is currently met
+            if (IsConditionalBuyPhaseAbility(unit.Ability))
+            {
+                AbilitySystem.GetEffectiveAttackForBuyPhase(
+                    unit, player, enemy, rowType, aliveCountByName,
+                    out AbilityActivationInfo activation);
+
+                if (activation.AbilityActivated)
+                    UnitEffectManager.ApplyEffect(effectId, unit.InstanceId);
+                else
+                    UnitEffectManager.RemoveEffect(effectId, unit.InstanceId);
+            }
+            else
+            {
+                // On-play and always-on abilities: always show effect
+                UnitEffectManager.ApplyEffect(effectId, unit.InstanceId);
+            }
+        }
+    }
+}
+
+private static bool IsConditionalBuyPhaseAbility(UnitAbilityType ability)
+{
+    switch (ability)
+    {
+        case UnitAbilityType.ThreeOfAKind:
+        case UnitAbilityType.Unmatched:
+        case UnitAbilityType.ArmorPiercing:
+        case UnitAbilityType.SOS:
+        case UnitAbilityType.BrotherInArms:
+            return true;
+        default:
+            return false;
     }
 }
 

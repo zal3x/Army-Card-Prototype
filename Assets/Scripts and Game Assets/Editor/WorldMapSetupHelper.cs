@@ -26,7 +26,7 @@ public class WorldMapSetupHelper : EditorWindow
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
 
         // Find WorldMapScreen
-        var worldMap = FindObjectOfType<WorldMapScreen>(true);
+        var worldMap = FindAnyObjectByType<WorldMapScreen>(FindObjectsInactive.Include);
         if (worldMap == null)
         {
             EditorGUILayout.HelpBox("WorldMapScreen not found in scene!\n\nClick 'Create WorldMapScreen Structure' below to create one.", MessageType.Warning);
@@ -115,7 +115,7 @@ public class WorldMapSetupHelper : EditorWindow
         }
 
         // Wire to GameStateManager
-        var gsm = FindObjectOfType<GameStateManager>();
+        var gsm = FindAnyObjectByType<GameStateManager>();
         if (gsm != null && worldMap != null)
         {
             var gsmSo = new SerializedObject(gsm);
@@ -173,7 +173,7 @@ public class WorldMapSetupHelper : EditorWindow
 
     private void CreateWorldMapStructure()
     {
-        var canvas = FindObjectOfType<Canvas>();
+        var canvas = FindAnyObjectByType<Canvas>();
         if (canvas == null)
         {
             EditorUtility.DisplayDialog("Error", "No Canvas found in scene!", "OK");
@@ -181,7 +181,7 @@ public class WorldMapSetupHelper : EditorWindow
         }
 
         // Check if WorldMapScreen already exists
-        var existing = FindObjectOfType<WorldMapScreen>(true);
+        var existing = FindAnyObjectByType<WorldMapScreen>(FindObjectsInactive.Include);
         if (existing != null)
         {
             if (!EditorUtility.DisplayDialog("Already Exists",

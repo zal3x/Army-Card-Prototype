@@ -25,7 +25,7 @@ public class WarCabinetSetupHelper : EditorWindow
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
 
         // Find WarCabinetScreen
-        var warCabinet = FindObjectOfType<WarCabinetScreen>(true);
+        var warCabinet = FindAnyObjectByType<WarCabinetScreen>(FindObjectsInactive.Include);
         if (warCabinet == null)
         {
             EditorGUILayout.HelpBox("WarCabinetScreen not found in scene!", MessageType.Error);
@@ -94,14 +94,19 @@ public class WarCabinetSetupHelper : EditorWindow
         }
 
         GUILayout.Space(10);
-        GUILayout.Label("Create Panel Structures", EditorStyles.boldLabel);
+        GUILayout.Label("Create/Replace Panel Structures", EditorStyles.boldLabel);
 
-        if (GUILayout.Button("Create ShopPanel Structure"))
+        if (GUILayout.Button("Create/Replace ShopPanel Structure (Cards)"))
         {
             CreateShopPanelStructure();
         }
 
-        if (GUILayout.Button("Create PerkPanel Structure"))
+        if (GUILayout.Button("Create/Replace Doctrine ShopPanel (128x192 grid)"))
+        {
+            CreateDoctrineShopPanelStructure();
+        }
+
+        if (GUILayout.Button("Create/Replace PerkPanel (280x80 grid)"))
         {
             CreatePerkPanelStructure();
         }
@@ -167,6 +172,21 @@ public class WarCabinetSetupHelper : EditorWindow
     {
         var go = CreateUIGameObject(name, parent);
         return go.AddComponent<T>();
+    }
+
+    /// <summary>
+    /// Finds and destroys an existing child by name so we can replace it.
+    /// </summary>
+    private void DestroyExistingChild(Transform parent, string childName)
+    {
+        for (int i = parent.childCount - 1; i >= 0; i--)
+        {
+            var child = parent.GetChild(i);
+            if (child.name == childName)
+            {
+                Undo.DestroyObjectImmediate(child.gameObject);
+            }
+        }
     }
 
     private void CreateShopItemPrefab()
@@ -295,81 +315,92 @@ public class WarCabinetSetupHelper : EditorWindow
 
     private void CreateDoctrineItemPrefab()
     {
-        // Create root with RectTransform
+        // Create root with RectTransform — 128x192 doctrine card size
         var go = CreateUIGameObject("DoctrineItemUI");
         var rootRect = go.GetComponent<RectTransform>();
-        rootRect.sizeDelta = new Vector2(220, 300);
+        rootRect.sizeDelta = new Vector2(128, 192);
 
-        // Add background
+        // Add background (old visual, hidden behind template art)
         var bgImage = go.AddComponent<Image>();
         bgImage.color = new Color(0.15f, 0.15f, 0.25f, 0.95f);
 
         // Add ShopItemUI component (doctrines use same component)
         var itemUI = go.AddComponent<ShopItemUI>();
 
-        // Rarity border
+        // Rarity border (outermost overlay)
         var rarityBorder = CreateUIElement<Image>(go.transform, "RarityBorder");
         rarityBorder.color = Color.blue;
         var rarityRect = rarityBorder.GetComponent<RectTransform>();
         rarityRect.anchorMin = Vector2.zero;
         rarityRect.anchorMax = Vector2.one;
-        rarityRect.offsetMin = new Vector2(-4, -4);
-        rarityRect.offsetMax = new Vector2(4, 4);
+        rarityRect.offsetMin = new Vector2(-3, -3);
+        rarityRect.offsetMax = new Vector2(3, 3);
         rarityBorder.transform.SetAsFirstSibling();
 
-        // Icon
+        // BackgroundArt — doctrine template image (128x192), stretch-fills root
+        var bgArt = CreateUIElement<Image>(go.transform, "BackgroundArt");
+        bgArt.color = Color.white;
+        var bgArtRect = bgArt.GetComponent<RectTransform>();
+        bgArtRect.anchorMin = Vector2.zero;
+        bgArtRect.anchorMax = Vector2.one;
+        bgArtRect.offsetMin = Vector2.zero;
+        bgArtRect.offsetMax = Vector2.zero;
+        // Place behind content but in front of rarity border
+        bgArt.transform.SetSiblingIndex(1);
+
+        // Icon (small, centered near top)
         var icon = CreateUIElement<Image>(go.transform, "Icon");
         icon.color = Color.white;
         var iconRect = icon.GetComponent<RectTransform>();
         iconRect.anchorMin = new Vector2(0.5f, 1f);
         iconRect.anchorMax = new Vector2(0.5f, 1f);
         iconRect.pivot = new Vector2(0.5f, 1f);
-        iconRect.anchoredPosition = new Vector2(0, -15);
-        iconRect.sizeDelta = new Vector2(80, 80);
+        iconRect.anchoredPosition = new Vector2(0, -8);
+        iconRect.sizeDelta = new Vector2(50, 50);
 
         // Name
         var nameText = CreateUIElement<TextMeshProUGUI>(go.transform, "NameText");
         nameText.text = "Doctrine Name";
-        nameText.fontSize = 16;
+        nameText.fontSize = 12;
         nameText.fontStyle = FontStyles.Bold;
         nameText.alignment = TextAlignmentOptions.Center;
         var nameRect = nameText.GetComponent<RectTransform>();
         nameRect.anchorMin = new Vector2(0, 1);
         nameRect.anchorMax = new Vector2(1, 1);
         nameRect.pivot = new Vector2(0.5f, 1);
-        nameRect.anchoredPosition = new Vector2(0, -100);
-        nameRect.sizeDelta = new Vector2(-10, 25);
+        nameRect.anchoredPosition = new Vector2(0, -62);
+        nameRect.sizeDelta = new Vector2(-6, 20);
 
         // Stats (shows "Doctrine")
         var statsText = CreateUIElement<TextMeshProUGUI>(go.transform, "StatsText");
         statsText.text = "Doctrine";
-        statsText.fontSize = 12;
+        statsText.fontSize = 10;
         statsText.color = new Color(0.7f, 0.7f, 1f);
         statsText.alignment = TextAlignmentOptions.Center;
         var statsRect = statsText.GetComponent<RectTransform>();
         statsRect.anchorMin = new Vector2(0, 1);
         statsRect.anchorMax = new Vector2(1, 1);
         statsRect.pivot = new Vector2(0.5f, 1);
-        statsRect.anchoredPosition = new Vector2(0, -125);
-        statsRect.sizeDelta = new Vector2(-10, 20);
+        statsRect.anchoredPosition = new Vector2(0, -82);
+        statsRect.sizeDelta = new Vector2(-6, 16);
 
         // Description
         var descText = CreateUIElement<TextMeshProUGUI>(go.transform, "DescriptionText");
         descText.text = "Doctrine effect description";
-        descText.fontSize = 11;
+        descText.fontSize = 9;
         descText.alignment = TextAlignmentOptions.Center;
         descText.enableWordWrapping = true;
         var descRect = descText.GetComponent<RectTransform>();
         descRect.anchorMin = new Vector2(0, 1);
         descRect.anchorMax = new Vector2(1, 1);
         descRect.pivot = new Vector2(0.5f, 1);
-        descRect.anchoredPosition = new Vector2(0, -145);
-        descRect.sizeDelta = new Vector2(-10, 60);
+        descRect.anchoredPosition = new Vector2(0, -98);
+        descRect.sizeDelta = new Vector2(-6, 45);
 
         // Price
         var priceText = CreateUIElement<TextMeshProUGUI>(go.transform, "PriceText");
         priceText.text = "150 WF";
-        priceText.fontSize = 16;
+        priceText.fontSize = 12;
         priceText.fontStyle = FontStyles.Bold;
         priceText.alignment = TextAlignmentOptions.Center;
         priceText.color = Color.yellow;
@@ -377,10 +408,10 @@ public class WarCabinetSetupHelper : EditorWindow
         priceRect.anchorMin = new Vector2(0, 1);
         priceRect.anchorMax = new Vector2(1, 1);
         priceRect.pivot = new Vector2(0.5f, 1);
-        priceRect.anchoredPosition = new Vector2(0, -215);
-        priceRect.sizeDelta = new Vector2(-10, 25);
+        priceRect.anchoredPosition = new Vector2(0, -148);
+        priceRect.sizeDelta = new Vector2(-6, 20);
 
-        // Button
+        // Purchase button (bottom)
         var buttonGo = CreateUIGameObject("PurchaseButton", go.transform);
         var button = buttonGo.AddComponent<Button>();
         var buttonImg = buttonGo.AddComponent<Image>();
@@ -389,12 +420,12 @@ public class WarCabinetSetupHelper : EditorWindow
         buttonRect.anchorMin = new Vector2(0.5f, 0);
         buttonRect.anchorMax = new Vector2(0.5f, 0);
         buttonRect.pivot = new Vector2(0.5f, 0);
-        buttonRect.anchoredPosition = new Vector2(0, 10);
-        buttonRect.sizeDelta = new Vector2(160, 40);
+        buttonRect.anchoredPosition = new Vector2(0, 5);
+        buttonRect.sizeDelta = new Vector2(100, 26);
 
         var buttonText = CreateUIElement<TextMeshProUGUI>(buttonGo.transform, "Text");
-        buttonText.text = "EQUIP";
-        buttonText.fontSize = 16;
+        buttonText.text = "BUY";
+        buttonText.fontSize = 12;
         buttonText.fontStyle = FontStyles.Bold;
         buttonText.alignment = TextAlignmentOptions.Center;
         var btnTextRect = buttonText.GetComponent<RectTransform>();
@@ -412,6 +443,7 @@ public class WarCabinetSetupHelper : EditorWindow
         so.FindProperty("statsText").objectReferenceValue = statsText;
         so.FindProperty("rarityBorder").objectReferenceValue = rarityBorder;
         so.FindProperty("purchaseButton").objectReferenceValue = button;
+        so.FindProperty("backgroundArtImage").objectReferenceValue = bgArt;
         so.ApplyModifiedProperties();
 
         SavePrefab(go, "DoctrineItemUI");
@@ -419,84 +451,94 @@ public class WarCabinetSetupHelper : EditorWindow
 
     private void CreatePerkItemPrefab()
     {
-        // Create root with RectTransform
+        // Create root with RectTransform — 280x80 perk banner size
         var go = CreateUIGameObject("PerkItemUI");
         var rootRect = go.GetComponent<RectTransform>();
-        rootRect.sizeDelta = new Vector2(280, 150);
+        rootRect.sizeDelta = new Vector2(280, 80);
 
-        // Background
+        // Background (old visual, hidden behind template art)
         var bgImage = go.AddComponent<Image>();
         bgImage.color = new Color(0.2f, 0.15f, 0.1f, 0.95f);
 
         // Add PerkItemUI component
         var itemUI = go.AddComponent<PerkItemUI>();
 
-        // Icon
+        // BackgroundArt — perk template image (384x96), stretch-fills root
+        var bgArt = CreateUIElement<Image>(go.transform, "BackgroundArt");
+        bgArt.color = Color.white;
+        var bgArtRect = bgArt.GetComponent<RectTransform>();
+        bgArtRect.anchorMin = Vector2.zero;
+        bgArtRect.anchorMax = Vector2.one;
+        bgArtRect.offsetMin = Vector2.zero;
+        bgArtRect.offsetMax = Vector2.zero;
+        bgArt.transform.SetAsFirstSibling();
+
+        // Icon (left side)
         var icon = CreateUIElement<Image>(go.transform, "Icon");
         icon.color = Color.white;
         var iconRect = icon.GetComponent<RectTransform>();
         iconRect.anchorMin = new Vector2(0, 0.5f);
         iconRect.anchorMax = new Vector2(0, 0.5f);
         iconRect.pivot = new Vector2(0, 0.5f);
-        iconRect.anchoredPosition = new Vector2(10, 0);
-        iconRect.sizeDelta = new Vector2(60, 60);
+        iconRect.anchoredPosition = new Vector2(8, 0);
+        iconRect.sizeDelta = new Vector2(50, 50);
 
-        // Name
+        // Name (top-left, after icon)
         var nameText = CreateUIElement<TextMeshProUGUI>(go.transform, "NameText");
         nameText.text = "Perk Name";
-        nameText.fontSize = 16;
+        nameText.fontSize = 14;
         nameText.fontStyle = FontStyles.Bold;
         nameText.alignment = TextAlignmentOptions.Left;
         var nameRect = nameText.GetComponent<RectTransform>();
         nameRect.anchorMin = new Vector2(0, 1);
         nameRect.anchorMax = new Vector2(1, 1);
         nameRect.pivot = new Vector2(0, 1);
-        nameRect.anchoredPosition = new Vector2(80, -10);
-        nameRect.sizeDelta = new Vector2(-90, 25);
+        nameRect.anchoredPosition = new Vector2(65, -6);
+        nameRect.sizeDelta = new Vector2(-165, 22);
 
-        // Tier text
+        // Tier text (below name)
         var tierText = CreateUIElement<TextMeshProUGUI>(go.transform, "TierText");
         tierText.text = "Tier: 0/5";
-        tierText.fontSize = 12;
+        tierText.fontSize = 11;
         tierText.alignment = TextAlignmentOptions.Left;
         tierText.color = new Color(1f, 0.8f, 0.4f);
         var tierRect = tierText.GetComponent<RectTransform>();
         tierRect.anchorMin = new Vector2(0, 1);
         tierRect.anchorMax = new Vector2(1, 1);
         tierRect.pivot = new Vector2(0, 1);
-        tierRect.anchoredPosition = new Vector2(80, -35);
-        tierRect.sizeDelta = new Vector2(-90, 20);
+        tierRect.anchoredPosition = new Vector2(65, -28);
+        tierRect.sizeDelta = new Vector2(-165, 18);
 
-        // Description
+        // Description (middle area)
         var descText = CreateUIElement<TextMeshProUGUI>(go.transform, "DescriptionText");
         descText.text = "Perk description";
-        descText.fontSize = 11;
+        descText.fontSize = 10;
         descText.alignment = TextAlignmentOptions.Left;
         descText.enableWordWrapping = true;
         var descRect = descText.GetComponent<RectTransform>();
         descRect.anchorMin = new Vector2(0, 1);
         descRect.anchorMax = new Vector2(1, 1);
         descRect.pivot = new Vector2(0, 1);
-        descRect.anchoredPosition = new Vector2(80, -55);
-        descRect.sizeDelta = new Vector2(-170, 35);
+        descRect.anchoredPosition = new Vector2(65, -46);
+        descRect.sizeDelta = new Vector2(-165, 24);
 
-        // Effect text
+        // Effect text (bottom-left area)
         var effectText = CreateUIElement<TextMeshProUGUI>(go.transform, "EffectText");
-        effectText.text = "+10 HP per tier";
-        effectText.fontSize = 12;
+        effectText.text = "+10 ATK per tier";
+        effectText.fontSize = 11;
         effectText.alignment = TextAlignmentOptions.Left;
         effectText.color = Color.green;
         var effectRect = effectText.GetComponent<RectTransform>();
-        effectRect.anchorMin = new Vector2(0, 1);
-        effectRect.anchorMax = new Vector2(1, 1);
-        effectRect.pivot = new Vector2(0, 1);
-        effectRect.anchoredPosition = new Vector2(80, -90);
-        effectRect.sizeDelta = new Vector2(-170, 20);
+        effectRect.anchorMin = new Vector2(0, 0);
+        effectRect.anchorMax = new Vector2(0.6f, 0);
+        effectRect.pivot = new Vector2(0, 0);
+        effectRect.anchoredPosition = new Vector2(65, 6);
+        effectRect.sizeDelta = new Vector2(0, 18);
 
-        // Cost text
+        // Cost text (right side)
         var costText = CreateUIElement<TextMeshProUGUI>(go.transform, "CostText");
         costText.text = "Next: 100 WF";
-        costText.fontSize = 14;
+        costText.fontSize = 13;
         costText.fontStyle = FontStyles.Bold;
         costText.alignment = TextAlignmentOptions.Center;
         costText.color = Color.yellow;
@@ -504,10 +546,10 @@ public class WarCabinetSetupHelper : EditorWindow
         costRect.anchorMin = new Vector2(1, 0.5f);
         costRect.anchorMax = new Vector2(1, 0.5f);
         costRect.pivot = new Vector2(1, 0.5f);
-        costRect.anchoredPosition = new Vector2(-10, 20);
-        costRect.sizeDelta = new Vector2(80, 25);
+        costRect.anchoredPosition = new Vector2(-8, 16);
+        costRect.sizeDelta = new Vector2(88, 22);
 
-        // Upgrade button
+        // Upgrade button (right side, below cost)
         var buttonGo = CreateUIGameObject("UpgradeButton", go.transform);
         var button = buttonGo.AddComponent<Button>();
         var buttonImg = buttonGo.AddComponent<Image>();
@@ -516,12 +558,12 @@ public class WarCabinetSetupHelper : EditorWindow
         buttonRect.anchorMin = new Vector2(1, 0);
         buttonRect.anchorMax = new Vector2(1, 0);
         buttonRect.pivot = new Vector2(1, 0);
-        buttonRect.anchoredPosition = new Vector2(-10, 10);
-        buttonRect.sizeDelta = new Vector2(80, 35);
+        buttonRect.anchoredPosition = new Vector2(-8, 6);
+        buttonRect.sizeDelta = new Vector2(88, 30);
 
         var buttonText = CreateUIElement<TextMeshProUGUI>(buttonGo.transform, "Text");
         buttonText.text = "UPGRADE";
-        buttonText.fontSize = 12;
+        buttonText.fontSize = 11;
         buttonText.fontStyle = FontStyles.Bold;
         buttonText.alignment = TextAlignmentOptions.Center;
         var btnTextRect = buttonText.GetComponent<RectTransform>();
@@ -530,17 +572,17 @@ public class WarCabinetSetupHelper : EditorWindow
         btnTextRect.offsetMin = Vector2.zero;
         btnTextRect.offsetMax = Vector2.zero;
 
-        // Tier indicators (5 small boxes)
+        // Tier indicators (5 small boxes, bottom-left)
         var indicatorContainer = CreateUIGameObject("TierIndicators", go.transform);
         var indicatorRect = indicatorContainer.GetComponent<RectTransform>();
         indicatorRect.anchorMin = new Vector2(0, 0);
         indicatorRect.anchorMax = new Vector2(0, 0);
         indicatorRect.pivot = new Vector2(0, 0);
-        indicatorRect.anchoredPosition = new Vector2(80, 10);
-        indicatorRect.sizeDelta = new Vector2(100, 20);
+        indicatorRect.anchoredPosition = new Vector2(8, 6);
+        indicatorRect.sizeDelta = new Vector2(50, 16);
 
         var hlg = indicatorContainer.AddComponent<HorizontalLayoutGroup>();
-        hlg.spacing = 5;
+        hlg.spacing = 3;
         hlg.childForceExpandWidth = false;
         hlg.childForceExpandHeight = false;
         hlg.childControlWidth = false;
@@ -552,7 +594,7 @@ public class WarCabinetSetupHelper : EditorWindow
             var indicator = CreateUIElement<Image>(indicatorContainer.transform, $"Tier{i + 1}");
             indicator.color = Color.gray;
             var indRect = indicator.GetComponent<RectTransform>();
-            indRect.sizeDelta = new Vector2(15, 15);
+            indRect.sizeDelta = new Vector2(8, 8);
             tierIndicators[i] = indicator;
         }
 
@@ -566,6 +608,7 @@ public class WarCabinetSetupHelper : EditorWindow
         so.FindProperty("effectText").objectReferenceValue = effectText;
         so.FindProperty("upgradeButton").objectReferenceValue = button;
         so.FindProperty("upgradeButtonText").objectReferenceValue = buttonText;
+        so.FindProperty("backgroundArtImage").objectReferenceValue = bgArt;
 
         // Wire tier indicators array
         var tierProp = so.FindProperty("tierIndicators");
@@ -611,12 +654,15 @@ public class WarCabinetSetupHelper : EditorWindow
 
     private void CreateShopPanelStructure()
     {
-        var canvas = FindObjectOfType<Canvas>();
+        var canvas = FindAnyObjectByType<Canvas>();
         if (canvas == null)
         {
             EditorUtility.DisplayDialog("Error", "No Canvas found in scene!", "OK");
             return;
         }
+
+        // Replace existing if present
+        DestroyExistingChild(canvas.transform, "ShopPanel");
 
         // Create ShopPanel root
         var panelGo = CreateUIGameObject("ShopPanel", canvas.transform);
@@ -718,22 +764,193 @@ public class WarCabinetSetupHelper : EditorWindow
         so.FindProperty("closeButton").objectReferenceValue = closeBtn;
         so.FindProperty("itemContainer").objectReferenceValue = contentGo.transform;
         so.FindProperty("scrollRect").objectReferenceValue = scrollRect;
+
+        // Auto-wire ShopItemUI prefab if it exists
+        var shopPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/Scripts and Game Assets/GameLogic/Overworld/UI/Prefabs/ShopItemUI.prefab");
+        if (shopPrefab != null)
+        {
+            var prefabUI = shopPrefab.GetComponent<ShopItemUI>();
+            if (prefabUI != null)
+                so.FindProperty("itemPrefab").objectReferenceValue = prefabUI;
+        }
+
         so.ApplyModifiedProperties();
+
+        // Also wire to WarCabinetScreen if found
+        var warCabinet = FindAnyObjectByType<WarCabinetScreen>(FindObjectsInactive.Include);
+        if (warCabinet != null)
+        {
+            var wcSo = new SerializedObject(warCabinet);
+            wcSo.FindProperty("cardShopPanel").objectReferenceValue = shopPanel;
+            wcSo.ApplyModifiedProperties();
+        }
 
         Selection.activeGameObject = panelGo;
 
+        string prefabMsg = shopPrefab != null
+            ? "ShopItemUI prefab auto-wired!"
+            : "NOTE: Create ShopItemUI prefab and drag it into 'Item Prefab' field.";
+
         EditorUtility.DisplayDialog("Created",
-            "ShopPanel structure created!\n\nNow:\n1. Create ShopItemUI prefab\n2. Drag it into ShopPanel's 'Item Prefab' field", "OK");
+            $"ShopPanel structure created!\n\n{prefabMsg}", "OK");
     }
 
-    private void CreatePerkPanelStructure()
+    private void CreateDoctrineShopPanelStructure()
     {
-        var canvas = FindObjectOfType<Canvas>();
+        var canvas = FindAnyObjectByType<Canvas>();
         if (canvas == null)
         {
             EditorUtility.DisplayDialog("Error", "No Canvas found in scene!", "OK");
             return;
         }
+
+        // Replace existing if present
+        DestroyExistingChild(canvas.transform, "DoctrineShopPanel");
+
+        // Create ShopPanel root for doctrines
+        var panelGo = CreateUIGameObject("DoctrineShopPanel", canvas.transform);
+        var panelRect = panelGo.GetComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(0.1f, 0.1f);
+        panelRect.anchorMax = new Vector2(0.9f, 0.9f);
+        panelRect.offsetMin = Vector2.zero;
+        panelRect.offsetMax = Vector2.zero;
+
+        var shopPanel = panelGo.AddComponent<ShopPanel>();
+        var bg = panelGo.AddComponent<Image>();
+        bg.color = new Color(0.1f, 0.1f, 0.15f, 0.95f);
+
+        // Title
+        var titleText = CreateUIElement<TextMeshProUGUI>(panelGo.transform, "TitleText");
+        titleText.text = "Doctrine Shop";
+        titleText.fontSize = 28;
+        titleText.alignment = TextAlignmentOptions.Center;
+        var titleRect = titleText.GetComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0, 1);
+        titleRect.anchorMax = new Vector2(1, 1);
+        titleRect.pivot = new Vector2(0.5f, 1);
+        titleRect.anchoredPosition = new Vector2(0, -10);
+        titleRect.sizeDelta = new Vector2(0, 50);
+
+        // Close Button
+        var closeGo = CreateUIGameObject("CloseButton", panelGo.transform);
+        var closeBtn = closeGo.AddComponent<Button>();
+        var closeImg = closeGo.AddComponent<Image>();
+        closeImg.color = new Color(0.8f, 0.2f, 0.2f);
+        var closeRect = closeGo.GetComponent<RectTransform>();
+        closeRect.anchorMin = new Vector2(1, 1);
+        closeRect.anchorMax = new Vector2(1, 1);
+        closeRect.pivot = new Vector2(1, 1);
+        closeRect.anchoredPosition = new Vector2(-10, -10);
+        closeRect.sizeDelta = new Vector2(40, 40);
+
+        var closeText = CreateUIElement<TextMeshProUGUI>(closeGo.transform, "X");
+        closeText.text = "X";
+        closeText.fontSize = 24;
+        closeText.alignment = TextAlignmentOptions.Center;
+        var closeTextRect = closeText.GetComponent<RectTransform>();
+        closeTextRect.anchorMin = Vector2.zero;
+        closeTextRect.anchorMax = Vector2.one;
+        closeTextRect.offsetMin = Vector2.zero;
+        closeTextRect.offsetMax = Vector2.zero;
+
+        // Scroll View
+        var scrollGo = CreateUIGameObject("ScrollView", panelGo.transform);
+        var scrollRect = scrollGo.AddComponent<ScrollRect>();
+        var scrollRectTrans = scrollGo.GetComponent<RectTransform>();
+        scrollRectTrans.anchorMin = new Vector2(0, 0);
+        scrollRectTrans.anchorMax = new Vector2(1, 1);
+        scrollRectTrans.offsetMin = new Vector2(20, 20);
+        scrollRectTrans.offsetMax = new Vector2(-20, -70);
+
+        // Viewport
+        var viewportGo = CreateUIGameObject("Viewport", scrollGo.transform);
+        var viewportRect = viewportGo.GetComponent<RectTransform>();
+        viewportRect.anchorMin = Vector2.zero;
+        viewportRect.anchorMax = Vector2.one;
+        viewportRect.offsetMin = Vector2.zero;
+        viewportRect.offsetMax = Vector2.zero;
+        var viewportImg = viewportGo.AddComponent<Image>();
+        viewportImg.color = new Color(0, 0, 0, 0.3f);
+        viewportGo.AddComponent<Mask>().showMaskGraphic = true;
+
+        // Content with 2-column grid for 128x192 doctrine cards
+        var contentGo = CreateUIGameObject("Content", viewportGo.transform);
+        var contentRect = contentGo.GetComponent<RectTransform>();
+        contentRect.anchorMin = new Vector2(0, 1);
+        contentRect.anchorMax = new Vector2(1, 1);
+        contentRect.pivot = new Vector2(0.5f, 1);
+        contentRect.anchoredPosition = Vector2.zero;
+        contentRect.sizeDelta = new Vector2(0, 0);
+
+        var grid = contentGo.AddComponent<GridLayoutGroup>();
+        grid.cellSize = new Vector2(128, 192);
+        grid.spacing = new Vector2(10, 10);
+        grid.padding = new RectOffset(15, 15, 15, 15);
+        grid.childAlignment = TextAnchor.UpperCenter;
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = 2;
+
+        var fitter = contentGo.AddComponent<ContentSizeFitter>();
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        // Wire ScrollRect
+        scrollRect.content = contentRect;
+        scrollRect.viewport = viewportRect;
+        scrollRect.horizontal = false;
+        scrollRect.vertical = true;
+
+        // Wire ShopPanel
+        var so = new SerializedObject(shopPanel);
+        so.FindProperty("root").objectReferenceValue = panelGo;
+        so.FindProperty("titleText").objectReferenceValue = titleText;
+        so.FindProperty("closeButton").objectReferenceValue = closeBtn;
+        so.FindProperty("itemContainer").objectReferenceValue = contentGo.transform;
+        so.FindProperty("scrollRect").objectReferenceValue = scrollRect;
+
+        // Auto-wire DoctrineItemUI prefab if it exists
+        var doctrinePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/Scripts and Game Assets/GameLogic/Overworld/UI/Prefabs/DoctrineItemUI.prefab");
+        if (doctrinePrefab != null)
+        {
+            var prefabUI = doctrinePrefab.GetComponent<ShopItemUI>();
+            if (prefabUI != null)
+                so.FindProperty("itemPrefab").objectReferenceValue = prefabUI;
+        }
+
+        so.ApplyModifiedProperties();
+
+        // Also wire to WarCabinetScreen if found
+        var warCabinet = FindAnyObjectByType<WarCabinetScreen>(FindObjectsInactive.Include);
+        if (warCabinet != null)
+        {
+            var wcSo = new SerializedObject(warCabinet);
+            wcSo.FindProperty("doctrineShopPanel").objectReferenceValue = shopPanel;
+            wcSo.ApplyModifiedProperties();
+        }
+
+        Selection.activeGameObject = panelGo;
+
+        string prefabMsg = doctrinePrefab != null
+            ? "DoctrineItemUI prefab auto-wired!"
+            : "NOTE: Create DoctrineItemUI prefab and drag it into 'Item Prefab' field.";
+
+        EditorUtility.DisplayDialog("Created",
+            $"Doctrine ShopPanel structure created (128x192, 2-column grid)!\n\n{prefabMsg}\n\nAssign DoctineDesign.png to the prefab's defaultDoctrineTemplate if not already set.", "OK");
+    }
+
+    private void CreatePerkPanelStructure()
+    {
+        var canvas = FindAnyObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            EditorUtility.DisplayDialog("Error", "No Canvas found in scene!", "OK");
+            return;
+        }
+
+        // Replace existing if present
+        DestroyExistingChild(canvas.transform, "PerkPanel");
 
         // Create PerkPanel root
         var panelGo = CreateUIGameObject("PerkPanel", canvas.transform);
@@ -801,7 +1018,7 @@ public class WarCabinetSetupHelper : EditorWindow
         viewportImg.color = new Color(0, 0, 0, 0.3f);
         viewportGo.AddComponent<Mask>().showMaskGraphic = true;
 
-        // Content
+        // Content with flexible grid for perk banners
         var contentGo = CreateUIGameObject("Content", viewportGo.transform);
         var contentRect = contentGo.GetComponent<RectTransform>();
         contentRect.anchorMin = new Vector2(0, 1);
@@ -810,15 +1027,13 @@ public class WarCabinetSetupHelper : EditorWindow
         contentRect.anchoredPosition = Vector2.zero;
         contentRect.sizeDelta = new Vector2(0, 0);
 
-        // VerticalLayoutGroup for perk items (they're wider, stacked vertically)
-        var vlg = contentGo.AddComponent<VerticalLayoutGroup>();
-        vlg.spacing = 10;
-        vlg.padding = new RectOffset(15, 15, 15, 15);
-        vlg.childAlignment = TextAnchor.UpperCenter;
-        vlg.childForceExpandWidth = true;
-        vlg.childForceExpandHeight = false;
-        vlg.childControlWidth = true;
-        vlg.childControlHeight = false;
+        // GridLayoutGroup — flexible columns, smaller perk banners
+        var grid = contentGo.AddComponent<GridLayoutGroup>();
+        grid.cellSize = new Vector2(280, 80);
+        grid.spacing = new Vector2(8, 8);
+        grid.padding = new RectOffset(10, 10, 10, 10);
+        grid.childAlignment = TextAnchor.UpperCenter;
+        grid.constraint = GridLayoutGroup.Constraint.Flexible;
 
         // ContentSizeFitter
         var fitter = contentGo.AddComponent<ContentSizeFitter>();
@@ -838,11 +1053,35 @@ public class WarCabinetSetupHelper : EditorWindow
         so.FindProperty("closeButton").objectReferenceValue = closeBtn;
         so.FindProperty("itemContainer").objectReferenceValue = contentGo.transform;
         so.FindProperty("scrollRect").objectReferenceValue = scrollRect;
+
+        // Auto-wire PerkItemUI prefab if it exists
+        var perkPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/Scripts and Game Assets/GameLogic/Overworld/UI/Prefabs/PerkItemUI.prefab");
+        if (perkPrefab != null)
+        {
+            var prefabUI = perkPrefab.GetComponent<PerkItemUI>();
+            if (prefabUI != null)
+                so.FindProperty("itemPrefab").objectReferenceValue = prefabUI;
+        }
+
         so.ApplyModifiedProperties();
+
+        // Also wire to WarCabinetScreen if found
+        var warCabinet = FindAnyObjectByType<WarCabinetScreen>(FindObjectsInactive.Include);
+        if (warCabinet != null)
+        {
+            var wcSo = new SerializedObject(warCabinet);
+            wcSo.FindProperty("perkPanel").objectReferenceValue = perkPanel;
+            wcSo.ApplyModifiedProperties();
+        }
 
         Selection.activeGameObject = panelGo;
 
+        string prefabMsg = perkPrefab != null
+            ? "PerkItemUI prefab auto-wired!"
+            : "NOTE: Create PerkItemUI prefab and drag it into 'Item Prefab' field.";
+
         EditorUtility.DisplayDialog("Created",
-            "PerkPanel structure created!\n\nNow:\n1. Create PerkItemUI prefab\n2. Drag it into PerkPanel's 'Item Prefab' field", "OK");
+            $"PerkPanel structure created (280x80, flexible grid)!\n\n{prefabMsg}\n\nAssign PerkOutline.png to the prefab's defaultPerkTemplate if not already set.", "OK");
     }
 }

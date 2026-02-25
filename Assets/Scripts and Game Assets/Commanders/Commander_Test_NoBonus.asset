@@ -20,5 +20,5 @@ MonoBehaviour:
   deck: {fileID: 11400000, guid: 7bdbb25d1df364380b17e0aae03f5db6, type: 2}
   overrideStartingHP: 0
   startingHP: 2000
-  overrideStartingGold: 0
-  startingGold: 0
+  overrideStartingGold: 1
+  startingGold: 100

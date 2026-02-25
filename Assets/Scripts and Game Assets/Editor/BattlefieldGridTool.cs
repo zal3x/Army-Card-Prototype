@@ -443,7 +443,7 @@ public class BattlefieldGridTool : EditorWindow
         {
             if (GUILayout.Button("Find FieldSpawner in Scene"))
             {
-                targetSpawner = FindObjectOfType<FieldSpawner>();
+                targetSpawner = FindAnyObjectByType<FieldSpawner>();
                 if (targetSpawner == null)
                     EditorUtility.DisplayDialog("Not Found", "No FieldSpawner found in the scene.", "OK");
             }

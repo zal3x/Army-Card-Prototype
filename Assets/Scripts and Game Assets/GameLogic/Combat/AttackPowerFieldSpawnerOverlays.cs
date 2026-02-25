@@ -108,14 +108,14 @@ public class AttackPowerFieldSpawnerOverlays : MonoBehaviour
     private void AutoWireReferences()
     {
         if (fieldSpawner == null)
-            fieldSpawner = FindObjectOfType<FieldSpawner>();
+            fieldSpawner = FindAnyObjectByType<FieldSpawner>();
 
         if (battleRunner == null)
         {
             if (GameStateManager.Instance != null && GameStateManager.Instance.battleRunner != null)
                 battleRunner = GameStateManager.Instance.battleRunner;
             else
-                battleRunner = FindObjectOfType<BattleTestRunner>();
+                battleRunner = FindAnyObjectByType<BattleTestRunner>();
         }
     }
 
@@ -125,7 +125,7 @@ public class AttackPowerFieldSpawnerOverlays : MonoBehaviour
             return;
 
         // Prefer a canvas named ATKOverlayCanvas if present
-        Canvas[] canvases = FindObjectsOfType<Canvas>(true);
+        Canvas[] canvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         for (int i = 0; i < canvases.Length; i++)
         {
             if (canvases[i] != null && canvases[i].name == "ATKOverlayCanvas")

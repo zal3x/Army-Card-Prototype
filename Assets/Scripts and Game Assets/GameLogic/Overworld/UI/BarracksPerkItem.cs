@@ -24,6 +24,15 @@ public class BarracksPerkItem : MonoBehaviour
     [SerializeField]
     private TMP_Text effectText;
 
+    [Header("Image Mode")]
+    [Tooltip("Background art image for perk template display")]
+    [SerializeField]
+    private Image backgroundArtImage;
+
+    [Tooltip("Default perk template sprite (PerkOutline.png, 384x96)")]
+    [SerializeField]
+    private Sprite defaultPerkTemplate;
+
     [Header("Tier Indicators")]
     [SerializeField]
     private Image[] tierIndicators;
@@ -40,6 +49,13 @@ public class BarracksPerkItem : MonoBehaviour
     public void Setup(PerkDefinition perk, int currentTier)
     {
         if (perk == null) return;
+
+        // Apply perk template background
+        if (backgroundArtImage != null && defaultPerkTemplate != null)
+        {
+            backgroundArtImage.sprite = defaultPerkTemplate;
+            backgroundArtImage.enabled = true;
+        }
 
         // Icon
         if (iconImage != null && perk.iconSprite != null)

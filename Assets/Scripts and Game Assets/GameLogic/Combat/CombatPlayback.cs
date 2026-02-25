@@ -1260,7 +1260,7 @@ private Vector3 GetCommanderPosition(Player player)
     /// </summary>
     private void PauseAllIdleAnimations()
     {
-        foreach (var anim in FindObjectsOfType<UnitAnimator>())
+        foreach (var anim in FindObjectsByType<UnitAnimator>(FindObjectsSortMode.None))
         {
             anim.PauseIdle();
         }
@@ -1274,7 +1274,7 @@ private Vector3 GetCommanderPosition(Player player)
     /// </summary>
     private void ResumeAllIdleAnimations()
     {
-        foreach (var anim in FindObjectsOfType<UnitAnimator>())
+        foreach (var anim in FindObjectsByType<UnitAnimator>(FindObjectsSortMode.None))
         {
             anim.ResumeIdle();
         }

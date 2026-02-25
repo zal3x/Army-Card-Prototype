@@ -565,6 +565,40 @@ public class SpecialCards : MonoBehaviour
     }
 
     /// <summary>
+    /// Applies visual effects to a unit based on currently active special cards.
+    /// Call this after a unit is spawned to ensure it gets the correct visual modifiers
+    /// (e.g., a vehicle placed after Land Mines are active should get the LandMines outline).
+    /// </summary>
+    public void ApplyActiveSpecialCardEffects(Player owner, Unit unit)
+    {
+        if (owner == null || unit == null || !unit.IsAlive) return;
+
+        var st = S(owner);
+
+        // Debuffs applied AGAINST this player's units
+        if (st.barbedWireActiveThisRound && !st.wireCutterActiveThisRound
+            && unit.Type == UnitType.Infantry)
+            UnitEffectManager.ApplyEffect("BarbedWire", unit.InstanceId);
+
+        if (st.landMinesActiveThisRound && !st.mechanicActiveThisRound
+            && (unit.Type == UnitType.Vehicle || unit.CountsAsVehicle))
+            UnitEffectManager.ApplyEffect("LandMines", unit.InstanceId);
+
+        if (st.radarJammerActiveThisRound && !st.hangarRatActiveThisRound
+            && (unit.Type == UnitType.Ranged || unit.Type == UnitType.Air))
+            UnitEffectManager.ApplyEffect("RadarJammer", unit.InstanceId);
+
+        if (st.empActiveThisRound
+            && (unit.Type == UnitType.Vehicle || unit.CountsAsVehicle
+                || unit.Type == UnitType.Ranged || unit.Type == UnitType.Air))
+            UnitEffectManager.ApplyEffect("EmpStrike", unit.InstanceId);
+
+        // Buffs for this player's own units
+        if (st.trenchesActiveThisRound && unit.Type == UnitType.Infantry)
+            UnitEffectManager.ApplyEffect("Trenches", unit.InstanceId);
+    }
+
+    /// <summary>
     /// DEPRECATED: Use GetATKModifierForUnit hook instead.
     /// </summary>
     [System.Obsolete("HP-based effects removed in Feb 2026 rework")]

@@ -14,7 +14,7 @@ public class CameraShake : MonoBehaviour
         {
             if (_instance == null)
             {
-                _instance = FindObjectOfType<CameraShake>();
+                _instance = FindAnyObjectByType<CameraShake>();
             }
             return _instance;
         }

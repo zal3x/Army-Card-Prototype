@@ -26,6 +26,15 @@ public class BarracksDoctrineItem : MonoBehaviour, IPointerClickHandler, IPointe
     [SerializeField]
     private GameObject equippedIndicator;
 
+    [Header("Image Mode")]
+    [Tooltip("Background art image for doctrine template display")]
+    [SerializeField]
+    private Image backgroundArtImage;
+
+    [Tooltip("Default doctrine template sprite (DoctineDesign.png, 128x192)")]
+    [SerializeField]
+    private Sprite defaultDoctrineTemplate;
+
     [Header("Hover Effect")]
     [SerializeField]
     private float hoverScale = 1.1f;
@@ -70,6 +79,13 @@ public class BarracksDoctrineItem : MonoBehaviour, IPointerClickHandler, IPointe
         onClick = onClicked;
 
         if (doctrine == null) return;
+
+        // Apply doctrine template background
+        if (backgroundArtImage != null && defaultDoctrineTemplate != null)
+        {
+            backgroundArtImage.sprite = defaultDoctrineTemplate;
+            backgroundArtImage.enabled = true;
+        }
 
         // Icon
         if (iconImage != null && doctrine.iconSprite != null)

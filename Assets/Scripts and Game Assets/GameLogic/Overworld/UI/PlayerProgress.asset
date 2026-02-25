@@ -12,175 +12,287 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dac7304bbed5f446e974c5bd92f2c3ae, type: 3}
   m_Name: PlayerProgress
   m_EditorClassIdentifier: Assembly-CSharp::PlayerProgressData
-  warFunds: 1274
+  warFunds: 0
   ownedCards: []
   currentDeck:
-  - instanceId: card_1_639072080745201650
+  - instanceId: card_1_639076320241472080
     definition: {fileID: 11400000, guid: 531cd28c2ccbd4f688ecd9c165af780c, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_2_639072080745207320
+  - instanceId: card_2_639076320241477600
     definition: {fileID: 11400000, guid: 531cd28c2ccbd4f688ecd9c165af780c, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_3_639072080745207340
+  - instanceId: card_3_639076320241477620
     definition: {fileID: 11400000, guid: 531cd28c2ccbd4f688ecd9c165af780c, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_4_639072080745207360
+  - instanceId: card_4_639076320241477630
     definition: {fileID: 11400000, guid: 7539b5589a6e84cabb4f7957f2dc766e, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_5_639072080745207380
+  - instanceId: card_5_639076320241477630
     definition: {fileID: 11400000, guid: 7539b5589a6e84cabb4f7957f2dc766e, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_6_639072080745207400
+  - instanceId: card_6_639076320241477650
     definition: {fileID: 11400000, guid: 7539b5589a6e84cabb4f7957f2dc766e, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_7_639072080745207410
+  - instanceId: card_7_639076320241477660
     definition: {fileID: 11400000, guid: 0eb78116dffef46329841cc9d4841a67, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_8_639072080745207420
+  - instanceId: card_8_639076320241477660
     definition: {fileID: 11400000, guid: 0eb78116dffef46329841cc9d4841a67, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_9_639072080745207430
+  - instanceId: card_9_639076320241477670
     definition: {fileID: 11400000, guid: d02c8b8c3a1c14fe4a8b87eb2d9c5f94, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_10_639072080745207460
+  - instanceId: card_10_639076320241477700
     definition: {fileID: 11400000, guid: d02c8b8c3a1c14fe4a8b87eb2d9c5f94, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_11_639072080745207470
+  - instanceId: card_11_639076320241477710
     definition: {fileID: 11400000, guid: d02c8b8c3a1c14fe4a8b87eb2d9c5f94, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_12_639072080745207490
+  - instanceId: card_12_639076320241477720
     definition: {fileID: 11400000, guid: 3359e22a61e3845f4bd49478773a60e1, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_13_639072080745207500
+  - instanceId: card_13_639076320241477720
     definition: {fileID: 11400000, guid: 3359e22a61e3845f4bd49478773a60e1, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_14_639072080745207510
+  - instanceId: card_14_639076320241477730
     definition: {fileID: 11400000, guid: 3359e22a61e3845f4bd49478773a60e1, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_15_639072080745207530
+  - instanceId: card_15_639076320241477740
     definition: {fileID: 11400000, guid: c613ca5466304427db34e5d6fe9f346a, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_16_639072080745207540
+  - instanceId: card_16_639076320241477750
     definition: {fileID: 11400000, guid: c613ca5466304427db34e5d6fe9f346a, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_17_639072080745207540
+  - instanceId: card_17_639076320241477750
     definition: {fileID: 11400000, guid: c613ca5466304427db34e5d6fe9f346a, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_18_639072080745207560
+  - instanceId: card_18_639076320241477760
     definition: {fileID: 11400000, guid: c930bbfd77b8b4065a117f31b54aa30b, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_19_639072080745207570
+  - instanceId: card_19_639076320241477770
     definition: {fileID: 11400000, guid: c930bbfd77b8b4065a117f31b54aa30b, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_20_639072080745207580
+  - instanceId: card_20_639076320241477790
     definition: {fileID: 11400000, guid: c930bbfd77b8b4065a117f31b54aa30b, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_21_639072080745207590
+  - instanceId: card_21_639076320241477800
+    definition: {fileID: 11400000, guid: 12f021aa3995c47479bdf7d2e4c13d6c, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_22_639076320241477820
+    definition: {fileID: 11400000, guid: 73c3f048f24584e03b146adeac902549, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_23_639076320241477820
     definition: {fileID: 11400000, guid: a3670587da2e0457a9b4a0f06e31d956, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_22_639072080745207600
+  - instanceId: card_24_639076320241477830
     definition: {fileID: 11400000, guid: a3670587da2e0457a9b4a0f06e31d956, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_23_639072080745207620
+  - instanceId: card_25_639076320241477840
     definition: {fileID: 11400000, guid: a3670587da2e0457a9b4a0f06e31d956, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_24_639072080745207640
+  - instanceId: card_26_639076320241477840
     definition: {fileID: 11400000, guid: f7cb2a01cb0e541f58f4fdb14e98e6a6, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_25_639072080745207650
+  - instanceId: card_27_639076320241477850
     definition: {fileID: 11400000, guid: f7cb2a01cb0e541f58f4fdb14e98e6a6, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_26_639072080745207650
+  - instanceId: card_28_639076320241477850
     definition: {fileID: 11400000, guid: f7cb2a01cb0e541f58f4fdb14e98e6a6, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_27_639072080745207660
+  - instanceId: card_29_639076320241477860
     definition: {fileID: 11400000, guid: db6deca5492244a53a6f51c6187c6d38, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_28_639072080745207670
+  - instanceId: card_30_639076320241477870
     definition: {fileID: 11400000, guid: db6deca5492244a53a6f51c6187c6d38, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_29_639072080745207680
+  - instanceId: card_31_639076320241477870
     definition: {fileID: 11400000, guid: db6deca5492244a53a6f51c6187c6d38, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_30_639072080745207690
+  - instanceId: card_32_639076320241477880
     definition: {fileID: 11400000, guid: 15a9537f07d464f148758f1a61710e5f, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_31_639072080745207700
+  - instanceId: card_33_639076320241477880
     definition: {fileID: 11400000, guid: 15a9537f07d464f148758f1a61710e5f, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_32_639072080745207710
+  - instanceId: card_34_639076320241477890
     definition: {fileID: 11400000, guid: 15a9537f07d464f148758f1a61710e5f, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_33_639072080745207730
+  - instanceId: card_35_639076320241477900
     definition: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_34_639072080745207750
+  - instanceId: card_36_639076320241477910
     definition: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_35_639072080745207760
+  - instanceId: card_37_639076320241477910
     definition: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_36_639072080745207770
+  - instanceId: card_38_639076320241477920
     definition: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_37_639072080745207780
+  - instanceId: card_39_639076320241477930
     definition: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_38_639072080745207790
+  - instanceId: card_40_639076320241477930
+    definition: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_41_639076320241477950
+    definition: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_42_639076320241477950
+    definition: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_43_639076320241477960
+    definition: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_44_639076320241477970
+    definition: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_45_639076320241477970
+    definition: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_46_639076320241477980
+    definition: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_47_639076320241477980
+    definition: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_48_639076320241477990
+    definition: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_49_639076320241478000
+    definition: {fileID: 11400000, guid: 3469dacf6847f47dfaf4f4e441831a9f, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_50_639076320241478000
     definition: {fileID: 11400000, guid: 7d429a3d54a794b24a8f548adf89d0f9, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_39_639072080745207800
+  - instanceId: card_51_639076320241478020
     definition: {fileID: 11400000, guid: 7d429a3d54a794b24a8f548adf89d0f9, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_40_639072080745207810
+  - instanceId: card_52_639076320241478030
     definition: {fileID: 11400000, guid: 7d429a3d54a794b24a8f548adf89d0f9, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_41_639072080745207810
-    definition: {fileID: 11400000, guid: 7d429a3d54a794b24a8f548adf89d0f9, type: 2}
+  - instanceId: card_53_639076320241478030
+    definition: {fileID: 11400000, guid: 29d58333127774b468ca06a1e24f4b0d, type: 2}
     bonusAtk: 0
     bonusHp: 0
-  - instanceId: card_42_639072080745207820
-    definition: {fileID: 11400000, guid: 7d429a3d54a794b24a8f548adf89d0f9, type: 2}
+  - instanceId: card_54_639076320241478040
+    definition: {fileID: 11400000, guid: 29d58333127774b468ca06a1e24f4b0d, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_55_639076320241478040
+    definition: {fileID: 11400000, guid: 29d58333127774b468ca06a1e24f4b0d, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_56_639076320241478050
+    definition: {fileID: 11400000, guid: 4cc2547a444914645bc7f10c81a67c00, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_57_639076320241478060
+    definition: {fileID: 11400000, guid: c5e93b40b0d4d43fcb9e525f27abc322, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_58_639076320241478060
+    definition: {fileID: 11400000, guid: b5e63f3d089ae405e937cc26f7ca2b37, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_59_639076320241478070
+    definition: {fileID: 11400000, guid: a3952bc78b60e4947918aea849214100, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_60_639076320241478080
+    definition: {fileID: 11400000, guid: 7709969b801d448eda8ac282c3b8375a, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_61_639076320241478080
+    definition: {fileID: 11400000, guid: 05b410ae2f4954b1cb9284c7bd53971f, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_62_639076320241478090
+    definition: {fileID: 11400000, guid: f1c294547ce2c48c29d05f613e8d5c17, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_63_639076320241478090
+    definition: {fileID: 11400000, guid: a0411c480f26b43c2ba2436caee73aa6, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_64_639076320241478100
+    definition: {fileID: 11400000, guid: c79cde2e676594e21a36c143fae029a2, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_65_639076320241478110
+    definition: {fileID: 11400000, guid: 01f2f12a70c594251879b80e47dd60e8, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_66_639076320241478130
+    definition: {fileID: 11400000, guid: 6d104fb1b686b4ad7b9cf9ee12d192ff, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_67_639076320241478140
+    definition: {fileID: 11400000, guid: bb0297b9123ed467e81ec376364c22a3, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_68_639076320241478140
+    definition: {fileID: 11400000, guid: 78e1a4d74e54f4c4498788970a5d562c, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_69_639076320241478150
+    definition: {fileID: 11400000, guid: bae4f621cb9024fd6b90fdb6136aaf13, type: 2}
+    bonusAtk: 0
+    bonusHp: 0
+  - instanceId: card_70_639076320241478160
+    definition: {fileID: 11400000, guid: 5fb4782b6394143e78448cc4ff8a3e35, type: 2}
     bonusAtk: 0
     bonusHp: 0
   ownedDoctrines: []

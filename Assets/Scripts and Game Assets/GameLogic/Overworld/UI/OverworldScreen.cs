@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// Base class for all overworld UI screens.
@@ -14,7 +15,7 @@ public abstract class OverworldScreen : MonoBehaviour
     /// <summary>
     /// Whether this screen is currently visible.
     /// </summary>
-    public bool IsVisible => root != null && root.activeSelf;
+    public bool IsVisible => root != null && root.activeInHierarchy;
 
     /// <summary>
     /// Show this screen.
@@ -32,6 +33,14 @@ public abstract class OverworldScreen : MonoBehaviour
 
         root.SetActive(true);
 
+        // WORKAROUND: If this screen component lives on the root GameObject,
+        // the first SetActive(true) triggers Awake() which may re-disable root.
+        // Awake only fires once, so a second call will stick.
+        if (!root.activeSelf)
+        {
+            root.SetActive(true);
+        }
+
         // Also activate all direct children (in case they were manually disabled)
         foreach (Transform child in root.transform)
         {
@@ -42,23 +51,36 @@ public abstract class OverworldScreen : MonoBehaviour
             }
         }
 
-        // Check for Canvas and log its sort order
-        var canvas = root.GetComponent<Canvas>();
-        if (canvas == null)
-            canvas = root.GetComponentInParent<Canvas>();
+        // Verify the root is actually active in the full hierarchy
+        if (!root.activeInHierarchy)
+        {
+            Debug.LogError($"[{GetType().Name}] root.activeInHierarchy is false! A parent is still inactive.");
+            Transform t = root.transform;
+            while (t.parent != null)
+            {
+                if (!t.parent.gameObject.activeSelf)
+                {
+                    Debug.LogWarning($"[{GetType().Name}] Force-activating parent: {t.parent.name}");
+                    t.parent.gameObject.SetActive(true);
+                }
+                t = t.parent;
+            }
+        }
 
+        // Force Unity to recalculate Canvas layout after activating previously-inactive UI
+        Canvas.ForceUpdateCanvases();
+
+        // Log the Canvas and RectTransform chain for diagnostics
+        var canvas = root.GetComponentInParent<Canvas>();
         if (canvas != null)
         {
-            Debug.Log($"[{GetType().Name}] Canvas found: {canvas.name}, SortOrder: {canvas.sortingOrder}, RenderMode: {canvas.renderMode}");
+            Debug.Log($"[{GetType().Name}] Canvas: {canvas.name}, renderMode={canvas.renderMode}, sortOrder={canvas.sortingOrder}");
         }
-        else
-        {
-            Debug.LogWarning($"[{GetType().Name}] No Canvas found! Screen may not render properly.");
-        }
+        LogRectTransformChain();
 
         OnShow();
 
-        Debug.Log($"[{GetType().Name}] Screen shown. Root active: {root.activeSelf}, Root position: {root.transform.position}");
+        Debug.Log($"[{GetType().Name}] Screen shown. Root active: {root.activeSelf}, activeInHierarchy: {root.activeInHierarchy}");
     }
 
     /// <summary>
@@ -89,6 +111,34 @@ public abstract class OverworldScreen : MonoBehaviour
     /// Override to clean up or save state.
     /// </summary>
     protected abstract void OnHide();
+
+    /// <summary>
+    /// Logs the RectTransform details of root and every parent up to the Canvas.
+    /// Helps identify which transform in the chain is introducing a position offset.
+    /// </summary>
+    private void LogRectTransformChain()
+    {
+        var rt = root.GetComponent<RectTransform>();
+        if (rt == null) return;
+
+        Transform t = rt.transform;
+        int depth = 0;
+        while (t != null)
+        {
+            var rect = t.GetComponent<RectTransform>();
+            if (rect != null)
+            {
+                Debug.Log($"[{GetType().Name}] RT[{depth}] '{t.name}': anchoredPos={rect.anchoredPosition}, anchors=({rect.anchorMin})-({rect.anchorMax}), offsets=({rect.offsetMin})-({rect.offsetMax}), localPos={rect.localPosition}");
+            }
+
+            var canvas = t.GetComponent<Canvas>();
+            if (canvas != null && canvas.isRootCanvas)
+                break;
+
+            t = t.parent;
+            depth++;
+        }
+    }
 
     /// <summary>
     /// Ensures all parent GameObjects in the hierarchy are active.
@@ -123,8 +173,10 @@ public abstract class OverworldScreen : MonoBehaviour
 
     protected virtual void Awake()
     {
-        // Hide by default on awake
-        if (root != null)
-            root.SetActive(false);
+        // Note: We no longer deactivate root in Awake.
+        // GameStateManager.HideAllScreens() handles initial hiding in Start().
+        // The old root.SetActive(false) here caused a bug: if the screen component
+        // lives on the root GameObject, calling root.SetActive(true) in Show()
+        // would trigger Awake, which immediately undid the activation.
     }
 }

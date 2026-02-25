@@ -30,6 +30,15 @@ public class ShopItemUI : MonoBehaviour
     [SerializeField]
     private Button purchaseButton;
 
+    [Header("Image Mode (Doctrines)")]
+    [Tooltip("Background art image for doctrine template display")]
+    [SerializeField]
+    private Image backgroundArtImage;
+
+    [Tooltip("Default doctrine template sprite (DoctineDesign.png, 128x192)")]
+    [SerializeField]
+    private Sprite defaultDoctrineTemplate;
+
     [Header("Rarity Colors")]
     [SerializeField]
     private Color commonColor = Color.gray;
@@ -97,6 +106,13 @@ public class ShopItemUI : MonoBehaviour
         if (item == null || item.doctrine == null) return;
 
         var doctrine = item.doctrine;
+
+        // Apply doctrine template background
+        if (backgroundArtImage != null && defaultDoctrineTemplate != null)
+        {
+            backgroundArtImage.sprite = defaultDoctrineTemplate;
+            backgroundArtImage.enabled = true;
+        }
 
         if (nameText != null)
             nameText.text = doctrine.displayName;

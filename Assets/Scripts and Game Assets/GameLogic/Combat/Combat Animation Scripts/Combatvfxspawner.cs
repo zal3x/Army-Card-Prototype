@@ -34,7 +34,7 @@ public class CombatVFXSpawner : MonoBehaviour
         {
             if (_instance == null)
             {
-                _instance = FindObjectOfType<CombatVFXSpawner>();
+                _instance = FindAnyObjectByType<CombatVFXSpawner>();
             }
             return _instance;
         }
@@ -133,10 +133,10 @@ public class CombatVFXSpawner : MonoBehaviour
 
         // Auto-find references if not assigned
         if (cardFlightManager == null)
-            cardFlightManager = FindObjectOfType<CardFlightManager>();
+            cardFlightManager = FindAnyObjectByType<CardFlightManager>();
 
         if (fieldSpawner == null)
-            fieldSpawner = FindObjectOfType<FieldSpawner>();
+            fieldSpawner = FindAnyObjectByType<FieldSpawner>();
     }
 
     // ========================================

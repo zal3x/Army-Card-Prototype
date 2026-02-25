@@ -400,7 +400,7 @@ public class DiscardPileSetupTool : EditorWindow
     {
         // Try to find a BuyPhaseUI_FixedHand in the scene if not assigned
         if (buyPhaseUI == null)
-            buyPhaseUI = Object.FindObjectOfType<BuyPhaseUI_FixedHand>();
+            buyPhaseUI = Object.FindAnyObjectByType<BuyPhaseUI_FixedHand>();
 
         if (buyPhaseUI == null)
         {

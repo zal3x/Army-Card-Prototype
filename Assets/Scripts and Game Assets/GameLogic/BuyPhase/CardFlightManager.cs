@@ -21,7 +21,7 @@ public class CardFlightManager : MonoBehaviour
         {
             if (_instance == null)
             {
-                _instance = FindObjectOfType<CardFlightManager>();
+                _instance = FindAnyObjectByType<CardFlightManager>();
                 if (_instance == null)
                     Debug.LogWarning("[CardFlightManager] No instance found in scene!");
             }
@@ -85,6 +85,9 @@ public GameObject specialCardPrefab;
     [Header("Reveal Timing")]
     public float spawnRevealDelay = 0.5f;
 
+    [Tooltip("Extra delay after unit is revealed before ability text and shader effects trigger. 0 = simultaneous with reveal.")]
+    public float abilityEffectDelay = 0.15f;
+
     [Header("Discard Flight Settings")]
     public float flightToDiscardDuration = 0.6f;
     public float discardArcHeight = 0.25f;
@@ -131,7 +134,7 @@ public GameObject specialCardPrefab;
             return;
         }
 
-        fieldSpawner = FindObjectOfType<FieldSpawner>();
+        fieldSpawner = FindAnyObjectByType<FieldSpawner>();
 
         if (worldCamera == null)
             worldCamera = Camera.main;
@@ -171,11 +174,12 @@ public GameObject specialCardPrefab;
     /// Best entry point: call this when player buys a card and you still have the CardVisual instance.
     /// This flies the actual card to the unit, slams, then hides it until death.
     /// </summary>
-    public void RegisterAndFlyToUnit(int unitId, CardVisual cardVisual, UnitCardDefinition cardDef, Vector3 unitWorldPosition, PlayerSide side)
+    public void RegisterAndFlyToUnit(int unitId, CardVisual cardVisual, UnitCardDefinition cardDef, Vector3 unitWorldPosition, PlayerSide side, Action onUnitRevealed = null)
     {
         if (cardVisual == null || cardVisual.cardData == null)
         {
             Debug.LogWarning("[CardFlightManager] RegisterAndFlyToUnit called with null cardVisual or cardData");
+            onUnitRevealed?.Invoke();
             return;
         }
 
@@ -193,7 +197,7 @@ public GameObject specialCardPrefab;
         // Late shrink (only near end)
         StartLateShrink(cardVisual);
 
-        // Fly -> slam -> hide -> spawn smoke -> reveal unit
+        // Fly -> slam -> hide -> spawn smoke -> reveal unit -> ability effects
         cardVisual.FlyToWorldPosition(unitWorldPosition, () =>
         {
             SlamThenHide(cardVisual);
@@ -209,6 +213,15 @@ public GameObject specialCardPrefab;
             {
                 if (fieldSpawner != null)
                     fieldSpawner.SetUnitVisibility(unitId, true);
+
+                // Fire ability text + shader effects after an additional delay
+                if (onUnitRevealed != null)
+                {
+                    if (abilityEffectDelay > 0f)
+                        LeanTween.delayedCall(gameObject, abilityEffectDelay, () => onUnitRevealed.Invoke());
+                    else
+                        onUnitRevealed.Invoke();
+                }
             });
         });
     }

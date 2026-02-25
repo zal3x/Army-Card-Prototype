@@ -111,3 +111,17 @@ MonoBehaviour:
     outlineWidthPixels: 2
     pulsing: 1
     pulseSpeed: 4
+  - effectId: MrMoneybags
+    effectColor: {r: 0.7169812, g: 0.63357204, b: 0.091313645, a: 1}
+    effectTypes: 1
+    intensity: 0.8
+    outlineWidthPixels: 2
+    pulsing: 0
+    pulseSpeed: 3
+  - effectId: Duplicate
+    effectColor: {r: 0.0754717, g: 0, b: 0, a: 1}
+    effectTypes: 1
+    intensity: 0.8
+    outlineWidthPixels: 2
+    pulsing: 0
+    pulseSpeed: 3

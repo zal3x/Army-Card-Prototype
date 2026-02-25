@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections.Generic;
+
 
 /// <summary>
 /// BuyPhaseUI_FixedHand: UI controller for the card-buying phase with carousel support.
