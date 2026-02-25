@@ -187,6 +187,62 @@ public class FirepowerDisplay : MonoBehaviour
     [Tooltip("How many units the gauge moves per tick")]
     public int gaugeStepSize = 1;
 
+    [Header("Panel Toggle")]
+    [Tooltip("The panel GameObject containing the row ATK stats to show/hide")]
+    public GameObject statsPanel;
+
+    [Tooltip("Start with the stats panel hidden")]
+    public bool startHidden = false;
+
+    // ========================================
+    // FIREPOWER BACKGROUND ANIMATIONS
+    // ========================================
+
+    [Header("Firepower Background Animations")]
+    [Tooltip("Animator for Player A's firepower background sprite. Set up an integer parameter (see Tier Param Name) with states: 0=idle, 1=Tier1 (leading), 2=Tier2 (dominant lead). The animation plays continuously while the tier is active.")]
+    public Animator firepowerBgAnimatorA;
+
+    [Tooltip("Animator for Player B's firepower background sprite. Same setup as Player A's.")]
+    public Animator firepowerBgAnimatorB;
+
+    [Tooltip("The name of the integer parameter in the Animator Controller that selects the animation tier (0, 1, or 2).")]
+    public string animatorTierParam = "Tier";
+
+    [Tooltip("ATK lead required to trigger Animation Tier 1 on the leading side. E.g. 10 = trigger when leading by 10 or more.")]
+    public int animTier1Lead = 10;
+
+    [Tooltip("ATK lead required to trigger Animation Tier 2 on the leading side. E.g. 20 = trigger when leading by 20 or more.")]
+    public int animTier2Lead = 20;
+
+    // ========================================
+    // LEAD INDICATOR
+    // ========================================
+
+    [Header("Lead Indicator")]
+    [Tooltip("GameObject shown when Player A has the lead (e.g. an arrow pointing left). Hidden when B leads or tied.")]
+    public GameObject leadIndicatorA;
+
+    [Tooltip("GameObject shown when Player B has the lead (e.g. an arrow pointing right). Hidden when A leads or tied.")]
+    public GameObject leadIndicatorB;
+
+    // ========================================
+    // SPECIAL CARD FLASH
+    // ========================================
+
+    [Header("Special Card Firepower Flash")]
+    [Tooltip("Color to flash the firepower text when it is RAISED by a special card.")]
+    public Color specialCardIncreaseFlashColor = new Color(0.1f, 1f, 0.3f); // Green
+
+    [Tooltip("Color to flash the firepower text when it is LOWERED by a special card.")]
+    public Color specialCardDecreaseFlashColor = new Color(1f, 0.15f, 0.15f); // Red
+
+    [Tooltip("Total duration of the flash effect (seconds).")]
+    public float specialCardFlashDuration = 1.2f;
+
+    [Tooltip("Number of flash pulses during the effect.")]
+    [Range(1, 10)]
+    public int specialCardFlashCount = 3;
+
     [Header("Debug")]
     [Tooltip("Log calculation details to console")]
     public bool debugLog = false;
@@ -204,6 +260,17 @@ public class FirepowerDisplay : MonoBehaviour
     // Dynamic gauge range - only grows, never shrinks (within a round)
     private float currentGaugeRange = 0f;
 
+    // Lead indicator state: 0=tied, 1=A leads, -1=B leads
+    private int _leadingPlayer = 0;
+
+    // Animation tier state (-1 = uninitialized, forces first-frame update)
+    private int _currentAnimTierA = -1;
+    private int _currentAnimTierB = -1;
+
+    // Flash coroutines for special card effects
+    private Coroutine _flashCoroutineA = null;
+    private Coroutine _flashCoroutineB = null;
+
     // Track running coroutines so we can stop them when starting new animations
     private Coroutine runningGaugeAnimation = null;
 
@@ -212,8 +279,46 @@ public class FirepowerDisplay : MonoBehaviour
         new System.Collections.Generic.Dictionary<TextMeshProUGUI, Coroutine>();
 
     // ========================================
+    // UNITY LIFECYCLE
+    // ========================================
+
+    private void Awake()
+    {
+        if (statsPanel != null)
+            statsPanel.SetActive(!startHidden);
+    }
+
+    // ========================================
     // PUBLIC API
     // ========================================
+
+    /// <summary>
+    /// Toggles the stats panel open or closed.
+    /// Wire a Button's OnClick to this in the Inspector.
+    /// </summary>
+    public void TogglePanel()
+    {
+        if (statsPanel != null)
+            statsPanel.SetActive(!statsPanel.activeSelf);
+    }
+
+    /// <summary>
+    /// Explicitly shows the stats panel.
+    /// </summary>
+    public void ShowPanel()
+    {
+        if (statsPanel != null)
+            statsPanel.SetActive(true);
+    }
+
+    /// <summary>
+    /// Explicitly hides the stats panel.
+    /// </summary>
+    public void HidePanel()
+    {
+        if (statsPanel != null)
+            statsPanel.SetActive(false);
+    }
 
     /// <summary>
     /// Updates the firepower display for both players.
@@ -322,6 +427,9 @@ public class FirepowerDisplay : MonoBehaviour
         int gaugeDifference = firepowerA - firepowerB;
         UpdateTugOfWarGauge(gaugeDifference, immediate);
 
+        // Lead indicator and background animations
+        UpdateLeadAndAnimations(firepowerA, firepowerB);
+
         // Debug: Log all text fields AFTER updates
         if (debugLog)
         {
@@ -370,6 +478,21 @@ public class FirepowerDisplay : MonoBehaviour
 
         // Reset gauge to center
         ResetGauge();
+
+        // Stop any active flash coroutines
+        if (_flashCoroutineA != null) { StopCoroutine(_flashCoroutineA); _flashCoroutineA = null; }
+        if (_flashCoroutineB != null) { StopCoroutine(_flashCoroutineB); _flashCoroutineB = null; }
+
+        // Reset lead indicator
+        _leadingPlayer = 0;
+        if (leadIndicatorA != null) leadIndicatorA.SetActive(false);
+        if (leadIndicatorB != null) leadIndicatorB.SetActive(false);
+
+        // Reset background animators to idle
+        _currentAnimTierA = -1;
+        _currentAnimTierB = -1;
+        if (firepowerBgAnimatorA != null) firepowerBgAnimatorA.SetInteger(animatorTierParam, 0);
+        if (firepowerBgAnimatorB != null) firepowerBgAnimatorB.SetInteger(animatorTierParam, 0);
     }
 
     // ========================================
@@ -1208,6 +1331,134 @@ public class FirepowerDisplay : MonoBehaviour
         }
 
         return totalATK;
+    }
+
+    // ========================================
+    // LEAD INDICATOR & BACKGROUND ANIMATION
+    // ========================================
+
+    /// <summary>
+    /// Called each Refresh(). Updates the lead indicator GameObjects and the background
+    /// animation tier on each side's Animator based on the current firepower difference.
+    ///
+    /// Lead indicators: Always update whenever the leading player changes.
+    /// Background animations: Only the LEADING side plays an animation.
+    ///   Tier 0 = no lead / below threshold (idle)
+    ///   Tier 1 = leading by >= animTier1Lead
+    ///   Tier 2 = leading by >= animTier2Lead (dominates tier 1)
+    /// </summary>
+    private void UpdateLeadAndAnimations(int fpA, int fpB)
+    {
+        int difference = fpA - fpB;
+        int absDiff = Mathf.Abs(difference);
+
+        // 0 = tied, 1 = A leads, -1 = B leads
+        int newLeadingPlayer;
+        if (difference > 0)       newLeadingPlayer = 1;
+        else if (difference < 0)  newLeadingPlayer = -1;
+        else                      newLeadingPlayer = 0;
+
+        // Update lead indicators whenever the leading side changes
+        if (newLeadingPlayer != _leadingPlayer)
+        {
+            _leadingPlayer = newLeadingPlayer;
+
+            if (leadIndicatorA != null)
+                leadIndicatorA.SetActive(newLeadingPlayer == 1);
+
+            if (leadIndicatorB != null)
+                leadIndicatorB.SetActive(newLeadingPlayer == -1);
+        }
+
+        // Only the leading side gets an animation tier; the other side stays at 0
+        int tierA = 0;
+        int tierB = 0;
+
+        if (newLeadingPlayer == 1)
+        {
+            if (absDiff >= animTier2Lead)      tierA = 2;
+            else if (absDiff >= animTier1Lead) tierA = 1;
+        }
+        else if (newLeadingPlayer == -1)
+        {
+            if (absDiff >= animTier2Lead)      tierB = 2;
+            else if (absDiff >= animTier1Lead) tierB = 1;
+        }
+
+        // Push tier to Animator only when it actually changes (avoids interrupting loops)
+        if (tierA != _currentAnimTierA)
+        {
+            _currentAnimTierA = tierA;
+            if (firepowerBgAnimatorA != null)
+                firepowerBgAnimatorA.SetInteger(animatorTierParam, tierA);
+        }
+
+        if (tierB != _currentAnimTierB)
+        {
+            _currentAnimTierB = tierB;
+            if (firepowerBgAnimatorB != null)
+                firepowerBgAnimatorB.SetInteger(animatorTierParam, tierB);
+        }
+    }
+
+    // ========================================
+    // SPECIAL CARD FLASH (PUBLIC API)
+    // ========================================
+
+    /// <summary>
+    /// Flash the firepower text for the given player to indicate a special card effect.
+    /// Call this from wherever special cards apply their ATK changes.
+    /// </summary>
+    /// <param name="isPlayerA">True for Player A's text, false for Player B's.</param>
+    /// <param name="increased">True = raised (green flash), false = lowered (red flash).</param>
+    public void NotifySpecialCardFirepowerChange(bool isPlayerA, bool increased)
+    {
+        TextMeshProUGUI targetText = isPlayerA ? firepowerTextA : firepowerTextB;
+        if (targetText == null) return;
+
+        Color flashColor = increased ? specialCardIncreaseFlashColor : specialCardDecreaseFlashColor;
+
+        if (isPlayerA)
+        {
+            if (_flashCoroutineA != null) StopCoroutine(_flashCoroutineA);
+            _flashCoroutineA = StartCoroutine(FlashTextCoroutine(targetText, flashColor,
+                specialCardFlashDuration, specialCardFlashCount));
+        }
+        else
+        {
+            if (_flashCoroutineB != null) StopCoroutine(_flashCoroutineB);
+            _flashCoroutineB = StartCoroutine(FlashTextCoroutine(targetText, flashColor,
+                specialCardFlashDuration, specialCardFlashCount));
+        }
+    }
+
+    /// <summary>
+    /// Flashes a text field between flashColor and its current color for the given
+    /// number of pulses, then restores the original color.
+    /// Safe to interrupt: if a new flash starts, the old coroutine is stopped first.
+    /// Note: ref parameters are not allowed in iterator methods, so caller manages the ref.
+    /// </summary>
+    private System.Collections.IEnumerator FlashTextCoroutine(
+        TextMeshProUGUI textField,
+        Color flashColor,
+        float duration,
+        int count)
+    {
+        if (textField == null) yield break;
+
+        Color originalColor = textField.color;
+        float halfInterval = duration / (count * 2f);
+
+        for (int i = 0; i < count; i++)
+        {
+            textField.color = flashColor;
+            yield return new WaitForSeconds(halfInterval);
+            textField.color = originalColor;
+            yield return new WaitForSeconds(halfInterval);
+        }
+
+        // Guarantee we end on the correct color even if interrupted mid-pulse
+        textField.color = originalColor;
     }
 
     /// <summary>

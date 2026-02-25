@@ -117,7 +117,7 @@ Definition = definition;
     /// IMPORTANT: Special cards should NOT call this.
     ///
     /// ABILITY EFFECTS APPLIED HERE:
-    /// - Armored (ReduceIncomingDamage50Percent): HP is doubled.
+    /// - Armored (Armored): HP is doubled.
     ///   This replaces the complex damage reduction logic - now the unit
     ///   simply has more HP and takes damage normally.
     /// </summary>
@@ -133,13 +133,13 @@ Definition = definition;
 
         // ARMORED: Double HP instead of complex damage reduction
         // This makes the effect visible on the health bar and simplifies combat
-        if (Ability == UnitAbilityType.ReduceIncomingDamage50Percent)
+        if (Ability == UnitAbilityType.Armored)
         {
             finalHP = BaseHP * 2;
             Debug.Log($"[ARMORED] '{Name}' HP doubled: {BaseHP} -> {finalHP}");
         }
 
-        return new Unit(
+        Unit unit = new Unit(
             Name,
             Type,
             finalHP,
@@ -148,6 +148,8 @@ Definition = definition;
             Ability,
             AbilityData
         );
+        unit.SetSourceCard(this);
+        return unit;
     }
 
     /// <summary>

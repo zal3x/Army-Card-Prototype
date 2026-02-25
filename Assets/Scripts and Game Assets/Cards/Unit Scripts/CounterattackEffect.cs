@@ -67,14 +67,16 @@ public class CounterattackEffect : MonoBehaviour
     public static CounterattackEffect SpawnAtPosition(Vector3 worldPosition)
     {
         var settings = CombatVisualSettings.Instance;
-        if (settings == null || !settings.enableCounterattackEffect) return null;
+        if (settings == null) { Debug.LogWarning("[CounterattackEffect] CombatVisualSettings instance is null"); return null; }
+        if (!settings.enableCounterattackEffect) { Debug.LogWarning("[CounterattackEffect] enableCounterattackEffect is FALSE in CombatVisualSettings"); return null; }
 
         // Check if effect has frames
         if (settings.counterattackEffectFrames == null || settings.counterattackEffectFrames.Length == 0)
         {
-            Debug.LogWarning("[CounterattackEffect] No animation frames configured in CombatVisualSettings");
+            Debug.LogWarning("[CounterattackEffect] No animation frames assigned in CombatVisualSettings — assign sprites to counterattackEffectFrames");
             return null;
         }
+        Debug.Log($"[CounterattackEffect] Spawning at {worldPosition} with {settings.counterattackEffectFrames.Length} frames");
 
         // Create effect GameObject
         GameObject effectGO = new GameObject("CounterattackEffect");
@@ -84,8 +86,8 @@ public class CounterattackEffect : MonoBehaviour
         // Add SpriteRenderer
         SpriteRenderer sr = effectGO.AddComponent<SpriteRenderer>();
         sr.color = settings.counterattackEffectColor;
+        sr.sortingLayerName = settings.counterattackEffectSortingLayer;
         sr.sortingOrder = settings.counterattackEffectSortingOrder;
-        sr.sortingLayerName = "Default";
 
         // Add and configure the effect component
         CounterattackEffect effect = effectGO.AddComponent<CounterattackEffect>();

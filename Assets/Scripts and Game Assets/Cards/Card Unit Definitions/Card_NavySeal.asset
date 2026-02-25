@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
   cardName: Navy Seal
   type: 0
-  cost: 4
-  hp: 24
-  atk: 8
+  cost: 7
+  hp: 0
+  atk: 10
   rarity: 0
-  ability: 4
+  ability: 6
   countsAsVehicle: 0
   abilityParams:
     Multiplier: 0.25

@@ -402,6 +402,32 @@ public class CommanderDisplay : MonoBehaviour
     }
 
     /// <summary>
+    /// Returns the world position of the portrait image center.
+    /// Used for overlaying sprite animations directly on the commander face.
+    /// </summary>
+    /// <summary>
+    /// Returns the portrait image's RectTransform for world-space projection.
+    /// BattleHUD uses this with GetCommanderUIWorldPosition for correct conversion.
+    /// </summary>
+    public RectTransform GetPortraitRectTransform()
+    {
+        if (portraitImage != null)
+            return portraitImage.rectTransform;
+        return GetComponent<RectTransform>();
+    }
+
+    public Vector3 GetPortraitWorldPosition()
+    {
+        if (portraitImage != null)
+        {
+            Vector3 pos = portraitImage.transform.position;
+            pos.z = -2f; // In front of UI
+            return pos;
+        }
+        return transform.position;
+    }
+
+    /// <summary>
     /// Returns world position for spawning damage numbers.
     /// Spawns BELOW the portrait with proper Z-depth to appear in front.
     /// </summary>

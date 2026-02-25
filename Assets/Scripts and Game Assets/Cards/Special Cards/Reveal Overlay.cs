@@ -17,6 +17,8 @@ public class CardRevealOverlay : MonoBehaviour
     [SerializeField] private Button backgroundButton;
 
     private System.Action onDismissCallback;
+    private System.Action<UnitCard> onSelectCallback;
+    private bool isSelectionMode;
 
     private void Awake()
     {
@@ -50,6 +52,8 @@ public class CardRevealOverlay : MonoBehaviour
         }
 
         onDismissCallback = onDismiss;
+        onSelectCallback = null;
+        isSelectionMode = false;
         showFrame = Time.frameCount;
 
         if (titleText != null) titleText.text = title;
@@ -113,6 +117,60 @@ public class CardRevealOverlay : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Shows the overlay in selection mode. Player can click a card to select it.
+    /// Used by POW to select from enemy discard pile.
+    /// </summary>
+    public void ShowWithSelection(string title, List<UnitCard> cards, bool cloneCards = true,
+        System.Action<UnitCard> onSelect = null, System.Action onDismiss = null)
+    {
+        Debug.Log($"[CardRevealOverlay] ShowWithSelection: title='{title}', cards={cards?.Count ?? 0}");
+
+        if (root == null || carousel == null)
+        {
+            Debug.LogError("[CardRevealOverlay] root or carousel is NULL!");
+            onDismiss?.Invoke();
+            return;
+        }
+
+        isSelectionMode = true;
+        onSelectCallback = onSelect;
+        onDismissCallback = onDismiss;
+        showFrame = Time.frameCount;
+
+        if (titleText != null) titleText.text = title + " (Click to Select)";
+
+        // Enable selection on the carousel
+        carousel.OnCardSelected = OnCardSelectedInOverlay;
+        carousel.allowKeyboardInput = true;
+        carousel.SetInputEnabled(true);
+
+        List<UnitCard> toShow = cloneCards ? CloneCards(cards) : cards;
+        carousel.SetCardsPreserveCenter(toShow);
+
+        // Activate overlay (same logic as Show)
+        Transform t = root.transform;
+        while (t.parent != null)
+        {
+            if (!t.parent.gameObject.activeSelf)
+                t.parent.gameObject.SetActive(true);
+            t = t.parent;
+        }
+
+        root.SetActive(true);
+    }
+
+    private void OnCardSelectedInOverlay(UnitCard card)
+    {
+        if (!isSelectionMode) return;
+
+        Debug.Log($"[CardRevealOverlay] Card selected: {card?.Name}");
+
+        isSelectionMode = false;
+        Hide();
+        onSelectCallback?.Invoke(card);
+    }
+
     private void Update()
     {
         // Allow Escape or Space to dismiss (NOT mouse click - that would prevent carousel interaction)
@@ -142,8 +200,13 @@ public class CardRevealOverlay : MonoBehaviour
 
     public void Hide()
     {
+        isSelectionMode = false;
+
         if (carousel != null)
+        {
+            carousel.OnCardSelected = null;
             carousel.SetInputEnabled(false);
+        }
 
         if (root != null) root.SetActive(false);
     }

@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
   cardName: Fighter
   type: 2
-  cost: 10
-  hp: 30
-  atk: 35
+  cost: 9
+  hp: 0
+  atk: 18
   rarity: 0
   ability: 0
   countsAsVehicle: 0

@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
   cardName: Heavy MGunner
   type: 0
-  cost: 1
-  hp: 4
-  atk: 3
+  cost: 5
+  hp: 0
+  atk: 9
   rarity: 0
-  ability: 12
+  ability: 7
   countsAsVehicle: 0
   abilityParams:
     Multiplier: 2

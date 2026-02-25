@@ -24,7 +24,7 @@ MonoBehaviour:
     Multiplier: 1
     Amount: 0
   isSpecialCard: 1
-  specialType: 13
+  specialType: 14
   hasPreemptive: 0
   preemptiveTargetType: 0
   preemptiveDamage: 0
@@ -33,6 +33,6 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: 8492349597091700090, guid: 0b8471b8c66844e3cabca787ae65de97, type: 3}
-  abilityDescription: Replace any unit on the battlefield; unit will be in hand and
-    cost 0 gold next rounds
+  abilityDescription: replaces any unit on your side of the battlefield, putting
+    them back in your hand and making their gold cost 0.
   Definition: {fileID: 0}

@@ -27,8 +27,8 @@ public enum DoctrineEffectType
     /// <summary>Strategic Reserves: Draw X extra cards at game start</summary>
     ExtraDrawAtStart,
 
-    /// <summary>Reinforcements: When army defeated, spawn unit before commander damage</summary>
-    SpawnOnArmyDefeated,
+    /// <summary>Reinforcements: When your commander takes damage, spawn a unit (once per battle)</summary>
+    SpawnOnCommanderDamaged,
 
     /// <summary>SOS: Revive X units from discard at specified round</summary>
     ReviveFromDiscard,

@@ -24,7 +24,7 @@ MonoBehaviour:
     Multiplier: 1
     Amount: 0
   isSpecialCard: 1
-  specialType: 8
+  specialType: 9
   hasPreemptive: 0
   preemptiveTargetType: 0
   preemptiveDamage: 0
@@ -33,5 +33,8 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: 7327949687151864162, guid: 36abbbaaff9e24cfa82aeec788731f8c, type: 3}
-  abilityDescription: Enemy vehicles lose all ability bonuses this round
+  abilityDescription: 'Units in enemy vehicles and ranged or vehicle and air row
+    lose 1 attack
+
+'
   Definition: {fileID: 0}

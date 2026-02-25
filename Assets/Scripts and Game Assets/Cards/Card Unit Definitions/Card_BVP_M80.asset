@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
   cardName: Gunner Tank
   type: 1
-  cost: 10
-  hp: 60
-  atk: 20
+  cost: 2
+  hp: 0
+  atk: 5
   rarity: 0
   ability: 1
   countsAsVehicle: 0

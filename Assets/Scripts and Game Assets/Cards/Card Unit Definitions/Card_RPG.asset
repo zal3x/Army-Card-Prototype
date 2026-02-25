@@ -15,8 +15,8 @@ MonoBehaviour:
   cardName: RPG
   type: 0
   cost: 2
-  hp: 6
-  atk: 7
+  hp: 0
+  atk: 3
   rarity: 0
   ability: 3
   countsAsVehicle: 0

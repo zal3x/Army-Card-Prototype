@@ -118,8 +118,6 @@ private RectTransform portraitRect;
     public System.Action<CardVisual> OnCardHoverExit;
 private void Awake()
 {
-        Debug.Log($"[CardVisual] Awake on '{name}'  parent='{(transform.parent ? transform.parent.name : "null")}'  scenePath='{GetScenePath(transform)}'", this);
-
     canvasGroup = GetComponent<CanvasGroup>();
     if (canvasGroup == null)
         canvasGroup = gameObject.AddComponent<CanvasGroup>();
@@ -215,7 +213,7 @@ public void SetUseInternalFlightScaling(bool enabled)
     // --- Always shown (both unit + special) ---
     if (costText != null) costText.text = displayCost.ToString();
     if (nameText != null) nameText.text = cardData.Name;
-    if (rankText != null) rankText.text = GetRankSymbol(displayCost);
+    //if (rankText != null) rankText.text = GetRankSymbol(displayCost);
 
     // --- Ability text behavior ---
     if (abilityText != null)
@@ -280,29 +278,28 @@ public void SetUseInternalFlightScaling(bool enabled)
         return ability switch
         {
             UnitAbilityType.None => "None",
-            UnitAbilityType.TauntRowFirst => "Taunt",
-            UnitAbilityType.DoubleAttackIfEnemyHasTank => "RPG",
-            UnitAbilityType.DoubleAttackIfThreeOfKindOnRow => "3-of-a-Kind",
-            UnitAbilityType.DoubleAttackIfFullHealth => "Full HP Bonus",
-            UnitAbilityType.ReduceIncomingDamage50Percent => "Armored",
-            UnitAbilityType.ArmorPiercing => "Armor Pierce",
+            UnitAbilityType.Taunt => "Taunt",
+            UnitAbilityType.ArmorPiercing => "Armor Piercing",
+            UnitAbilityType.ThreeOfAKind => "3-of-a-Kind",
+            UnitAbilityType.Unmatched => "Unmatched",
+            UnitAbilityType.Armored => "Armored",
             UnitAbilityType.Counterattack => "Counter",
-            UnitAbilityType.CommanderBypassDamage25Percent => "Bypass",
+            UnitAbilityType.DirectAttack => "Direct Attack",
             UnitAbilityType.TargetMark => "Mark Target",
-            UnitAbilityType.GainGoldOnPlay => "Gain Gold",
-            UnitAbilityType.DuplicateSelfFromDeckOnPlay => "Duplicate",
-            UnitAbilityType.DestroyStrongestEnemyVehicleIfEnemyVehicleRowIsFullOnPlay => "Anti-Vehicle",
+            UnitAbilityType.MrMoneybags => "Mr. Moneybags",
+            UnitAbilityType.Duplicate => "Duplicate",
+            UnitAbilityType.DestroyStrongestVehicle => "Destroy Strongest Vehicle",
             _ => ability.ToString()
         };
     }
 
-    private string GetRankSymbol(int cost)
-    {
-        if (cost <= 1) return "★";
-        if (cost <= 3) return "★★";
-        if (cost <= 6) return "★★★";
-        return "★★★★";
-    }
+   /// private string GetRankSymbol(int cost)
+   /// {
+   ///     if (cost <= 1) return "★";
+   ///     if (cost <= 3) return "★★";
+   //////     if (cost <= 6) return "★★★";
+   ///     return "★★★★";
+  ///  }
 
     private Color GetTypeColor(UnitType type)
     {

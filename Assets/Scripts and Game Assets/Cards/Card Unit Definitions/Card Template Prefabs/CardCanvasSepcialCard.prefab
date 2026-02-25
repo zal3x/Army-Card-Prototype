@@ -497,7 +497,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 1
+  m_PresetInfoIsWorld: 0
 --- !u!114 &1851690018603280494
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -655,9 +655,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'PVT
-
-'
+  m_text: PVT
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -806,7 +804,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -989085045499774128, guid: 5a90930534d8947c6b1e87c32d65c04a, type: 3}
+  m_Sprite: {fileID: 0}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -840,8 +838,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 759016364e5484f93be5e99d1f50d885, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CardVisual
-  cardBackground: {fileID: 0}
-  unitPortrait: {fileID: 0}
+  cardBackground: {fileID: 1527284293568331029}
+  unitPortrait: {fileID: 7510416295916146796}
   costText: {fileID: 8045977550021163243}
   nameText: {fileID: 3001028943837371345}
   typeText: {fileID: 4412480831896761705}

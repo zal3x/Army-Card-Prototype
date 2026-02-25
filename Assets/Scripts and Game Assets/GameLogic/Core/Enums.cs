@@ -51,57 +51,118 @@ public enum BattlefieldRowMode
     // NavalOnly, AirSupremacy, etc.
 }
 // -------------------------
-// UNIT ABILITIES (prototype)
+// UNIT ABILITIES (Feb 2026 Rework)
 // -------------------------
-// These are simple "keywords" that modify how ATK is counted.
-// Later you can expand this into a full ability system.
+// Abilities are processed in AbilitySystem.cs (ATK calculation) and CombatResolver.cs (combat effects)
 public enum UnitAbilityType
 {
     None,
 
-    // Combat-time abilities
-    DoubleAttackIfThreeOfKindOnRow,
-    DoubleAttackIfFullHealth,
-    DoubleAttackIfEnemyHasTank,
-    CommanderBypassDamage25Percent,
-    ReduceIncomingDamage50Percent,
-
-     // -------------------------
-    // NEW ABILITIES (combat)
-    // -------------------------
-
-    
-  
-    // ARMOR PIERCING: If attacker has ANY unit with this alive,
-    // it disables ReduceIncomingDamage50Percent on the defender.
-    ArmorPiercing,
-
-    // COUNTERATTACK: When damaged but not destroyed, deals 50% of HP damage dealt
-    // back to the attacker as a second "counter damage stream".
-    Counterattack,
-
-
-    // On-Play abilities (trigger immediately when unit is bought + placed)
-    // TAUNT (ROW): If defender has this unit alive in a row,
-    // that ROW is attacked first when damage is applied to the army.
-
-
-    // TARGET: If attacker has this unit alive, it marks ONE enemy unit.
-    // Marked unit takes 2x HP damage from the stream (vulnerability).
-    GainGoldOnPlay,
-    DuplicateSelfFromDeckOnPlay,
-    DestroyStrongestEnemyVehicleIfEnemyVehicleRowIsFullOnPlay,
-    TauntRowFirst,
-    TargetMark,
-
-    // -------------------------
-    // SPECIAL DISPLAY-ONLY TYPES
-    // -------------------------
-    // These aren't real unit abilities but are used for floating text display
+    // ========================================
+    // COMBAT ATK MODIFIERS
+    // ========================================
 
     /// <summary>
-    /// Used when a commander bonus (not a unit ability) triggers an ATK/HP bonus.
-    /// This allows separate display settings in AbilityDisplaySettings.
+    /// "3 of a Kind" - Double ATK if 3+ copies of this unit in the same row.
+    /// </summary>
+    ThreeOfAKind,
+
+    /// <summary>
+    /// "Unmatched" - Double ATK if only one of this exact unit on the entire field.
+    /// </summary>
+    Unmatched,
+
+    /// <summary>
+    /// "Armor Piercing" - Gains +1 ATK for each enemy ARMORED unit on the field.
+    /// </summary>
+    ArmorPiercing,
+
+    /// <summary>
+    /// "SOS" - Double ATK when owner's commander HP is below 20%.
+    /// </summary>
+    SOS,
+
+    /// <summary>
+    /// "Brother in Arms" - Double ATK if another copy of this unit is on the field.
+    /// Both copies get the bonus.
+    /// </summary>
+    BrotherInArms,
+
+    // ========================================
+    // COMMANDER DAMAGE ABILITIES
+    // ========================================
+
+    /// <summary>
+    /// "Direct Attack" - Deals flat 5 damage directly to enemy commander.
+    /// </summary>
+    DirectAttack,
+
+    /// <summary>
+    /// "Counterattack" - Deals 1 commander damage when this unit is destroyed.
+    /// </summary>
+    Counterattack,
+
+    // ========================================
+    // DEFENSIVE ABILITIES
+    // ========================================
+
+    /// <summary>
+    /// "Armored" - Unit's ATK cannot be reduced by enemy abilities, doctrines, perks, or commander effects.
+    /// </summary>
+    Armored,
+
+    /// <summary>
+    /// DEPRECATED: Legacy enum value, do not use.
+    /// </summary>
+    [System.Obsolete("Use ArmorPiercing instead")]
+    ArmorPiercing_DEPRECATED,
+
+    // ========================================
+    // ON-PLAY ABILITIES
+    // ========================================
+
+    /// <summary>
+    /// "Mr. Moneybags" - Gain gold when played.
+    /// </summary>
+    MrMoneybags,
+
+    /// <summary>
+    /// "Duplicate" - Play another copy of this unit from deck if available.
+    /// </summary>
+    Duplicate,
+
+    /// <summary>
+    /// "Destroy Strongest Vehicle" - Destroys strongest enemy vehicle if their vehicle row is full.
+    /// </summary>
+    DestroyStrongestVehicle,
+
+    /// <summary>
+    /// "Taunt" - Lowers the ATK of a random enemy unit by 1 when played.
+    /// </summary>
+    Taunt,
+
+    /// <summary>
+    /// "Target Mark" - Destroys the weakest enemy unit (lowest ATK) when played.
+    /// </summary>
+    TargetMark,
+
+    // ========================================
+    // PERSISTENCE
+    // ========================================
+
+    /// <summary>
+    /// "Persist" - Unit survives combat if owner won or tied the round.
+    /// Without this, all units are destroyed after each combat.
+    /// </summary>
+    Persist,
+
+    // ========================================
+    // SPECIAL DISPLAY-ONLY TYPES
+    // ========================================
+
+    /// <summary>
+    /// Used for floating text display when commander bonus activates.
+    /// Not a real unit ability.
     /// </summary>
     CommanderBonusActivation,
 }

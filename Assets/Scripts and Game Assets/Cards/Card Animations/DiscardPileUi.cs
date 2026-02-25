@@ -63,6 +63,10 @@ public class DiscardPileUI : MonoBehaviour
     [Tooltip("Optional: callback when a card is selected in expanded view (for 'play from discard' ability)")]
     public bool allowCardSelection = false;
 
+    [Header("Carousel (Optional - overrides grid view)")]
+    [Tooltip("If assigned, expanded view uses this CardCarousel instead of the grid layout")]
+    public CardCarousel carousel;
+
     [Header("Animation")]
     [Tooltip("Duration of card landing animation")]
     public float cardLandDuration = 0.2f;
@@ -81,6 +85,12 @@ public class DiscardPileUI : MonoBehaviour
     public event Action<UnitCard> OnCardSelected;
 
     // ========================================
+    // SINGLETON (for ability/doctrine access)
+    // ========================================
+
+    public static DiscardPileUI Instance { get; private set; }
+
+    // ========================================
     // PRIVATE STATE
     // ========================================
 
@@ -95,6 +105,8 @@ public class DiscardPileUI : MonoBehaviour
 
     private void Awake()
     {
+        Instance = this;
+
         // Wire up buttons
         if (expandButton != null)
             expandButton.onClick.AddListener(ToggleExpanded);
@@ -154,8 +166,18 @@ public class DiscardPileUI : MonoBehaviour
     }
 
     /// <summary>
+    /// Opens the expanded carousel view immediately.
+    /// Called by abilities, doctrines, or special cards that need to show the discard pile.
+    /// </summary>
+    public void ShowPopup()
+    {
+        OpenExpanded(forceOpen: true);
+    }
+
+    /// <summary>
     /// Clears all cards from the discard pile.
-    /// Call at the start of a new battle.
+    /// Called at the start of a new match, or by abilities that reset the discard pile.
+    /// NOT called between rounds — cards accumulate for the entire match.
     /// </summary>
     public void Clear()
     {
@@ -309,10 +331,10 @@ public class DiscardPileUI : MonoBehaviour
             OpenExpanded();
     }
 
-    private void OpenExpanded()
+    private void OpenExpanded(bool forceOpen = false)
     {
         if (expandedPanel == null) return;
-        if (discardedCards.Count == 0) return;
+        if (discardedCards.Count == 0 && !forceOpen) return;
 
         isExpanded = true;
         expandedPanel.SetActive(true);
@@ -356,6 +378,21 @@ public class DiscardPileUI : MonoBehaviour
 
     private void RefreshExpandedView()
     {
+        // If a carousel is assigned, use it (preferred path)
+        if (carousel != null)
+        {
+            // Build list newest-first for carousel
+            var cardsNewestFirst = new System.Collections.Generic.List<UnitCard>(discardedCards);
+            cardsNewestFirst.Reverse();
+            carousel.SetCards(cardsNewestFirst);
+
+            if (allowCardSelection)
+                carousel.OnCardSelected += HandleCarouselCardSelected;
+
+            return;
+        }
+
+        // Fallback: manual grid layout using expandedCardPrefab
         ClearExpandedVisuals();
 
         if (expandedContent == null || expandedCardPrefab == null) return;
@@ -371,11 +408,10 @@ public class DiscardPileUI : MonoBehaviour
             {
                 cardVisual.SetCard(card);
 
-                // Set up click handler for card selection (future "play from discard" ability)
                 if (allowCardSelection)
                 {
                     cardVisual.SetInteractable(true);
-                    int cardIndex = i; // Capture for closure
+                    int cardIndex = i;
                     cardVisual.OnCardClicked += (cv) => OnExpandedCardClicked(cardIndex);
                 }
                 else
@@ -388,8 +424,23 @@ public class DiscardPileUI : MonoBehaviour
         }
     }
 
+    private void HandleCarouselCardSelected(UnitCard card)
+    {
+        if (card == null) return;
+        Debug.Log($"[DiscardPileUI] Carousel card selected: {card.Name}");
+        OnCardSelected?.Invoke(card);
+    }
+
     private void ClearExpandedVisuals()
     {
+        // Clear carousel if in use
+        if (carousel != null)
+        {
+            carousel.OnCardSelected -= HandleCarouselCardSelected;
+            carousel.ClearCards();
+            return;
+        }
+
         foreach (var visual in expandedCardVisuals)
         {
             if (visual != null)

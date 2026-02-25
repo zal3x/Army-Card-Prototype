@@ -15,26 +15,26 @@ public struct AbilityActivationInfo
 
 /// <summary>
 /// AbilitySystem: Centralized ability execution for the entire game.
-/// 
+///
 /// DESIGN PHILOSOPHY:
 /// - Single source of truth for ALL ability behavior
 /// - Prevents combat/buy phase logic from drifting apart over time
 /// - Makes it easy to add new abilities (one place to edit)
 /// - Clear separation between ability phases (OnPlay vs Combat)
-/// 
+///
 /// ABILITY PHASES:
-/// 
+///
 /// 1. ON-PLAY PHASE (Buy Phase)
 ///    - Triggers immediately when a unit is bought and placed
 ///    - Examples: gain gold, duplicate self, destroy enemy unit, mark target
 ///    - Requires IOnPlayApi to interact with game state
-/// 
+///
 /// 2. COMBAT PHASE (Multiple sub-phases)
 ///    - Attack Snapshot: Modifies ATK totals before damage is applied
 ///    - Commander Bypass: Deals damage directly to commander (Navy Seal)
 ///    - Incoming Damage: Modifies how units take damage (Armor, Target Mark)
 ///    - Counterattack: Damaged units deal damage back
-/// 
+///
 /// ADDING NEW ABILITIES:
 /// 1. Add enum value to UnitAbilityType (Enums.cs)
 /// 2. Add execution logic to the appropriate phase method here
@@ -49,11 +49,11 @@ public static class AbilitySystem
 
     /// <summary>
     /// Interface for on-play abilities that need to interact with game state.
-    /// 
+    ///
     /// WHY AN INTERFACE?
     /// Some on-play abilities need help from the "buy phase controller"
     /// (because it knows maxUnitsPerRow, placement rules, deck access, etc.)
-    /// 
+    ///
     /// This interface lets abilities request actions without coupling
     /// AbilitySystem to BattleTestRunner or other controllers.
     /// </summary>
@@ -61,21 +61,27 @@ public static class AbilitySystem
     {
         /// <summary>
         /// Attempts to play a duplicate copy of a unit from the deck.
-        /// Used by: DuplicateSelfFromDeckOnPlay
+        /// Used by: Duplicate ability
         /// </summary>
         bool TryPlayCopyFromDeck(Player owner, Unit sourceUnit);
 
         /// <summary>
         /// Destroys the strongest enemy vehicle if their vehicle row is full.
-        /// Used by: DestroyStrongestEnemyVehicleIfEnemyVehicleRowIsFullOnPlay
+        /// Used by: DestroyStrongestVehicle ability
         /// </summary>
         void TryDestroyStrongestEnemyVehicleIfRowFull(Player owner, Player enemy);
 
         /// <summary>
-        /// Marks a random enemy unit for 2x vulnerability during combat.
-        /// Used by: TargetMark
+        /// Destroys the weakest enemy unit (lowest ATK) on the battlefield.
+        /// Used by: TargetMark ability
         /// </summary>
-        void ApplyTargetMarkOnPlay(Player owner, Player enemy, Unit markerUnit);
+        void DestroyWeakestEnemyUnit(Player owner, Player enemy, Unit sourceUnit);
+
+        /// <summary>
+        /// Reduces a random enemy unit's ATK by 1.
+        /// Used by: Taunt ability
+        /// </summary>
+        void ReduceRandomEnemyATK(Player owner, Player enemy, Unit sourceUnit, int amount);
     }
 
     // ========================================
@@ -84,7 +90,7 @@ public static class AbilitySystem
 
     /// <summary>
     /// Executes on-play abilities immediately after a unit is bought and placed.
-    /// 
+    ///
     /// WHEN THIS IS CALLED:
     /// - After gold is spent
     /// - After card is removed from hand
@@ -106,7 +112,7 @@ public static class AbilitySystem
             // ECONOMY ABILITIES
             // ========================================
 
-            case UnitAbilityType.GainGoldOnPlay:
+            case UnitAbilityType.MrMoneybags:
             {
                 int amount = unit.AbilityData.Amount;
                 owner.Gold += amount;
@@ -119,7 +125,7 @@ public static class AbilitySystem
             // SUMMONING ABILITIES
             // ========================================
 
-            case UnitAbilityType.DuplicateSelfFromDeckOnPlay:
+            case UnitAbilityType.Duplicate:
             {
                 // Searches deck for another copy of this unit and plays it immediately
                 // (if there's room in the row)
@@ -131,7 +137,7 @@ public static class AbilitySystem
             // DESTRUCTION ABILITIES
             // ========================================
 
-            case UnitAbilityType.DestroyStrongestEnemyVehicleIfEnemyVehicleRowIsFullOnPlay:
+            case UnitAbilityType.DestroyStrongestVehicle:
             {
                 // Destroys the strongest enemy vehicle (highest ATK, then HP)
                 // but ONLY if their vehicle row is completely full
@@ -140,26 +146,24 @@ public static class AbilitySystem
             }
 
             // ========================================
-            // TARGETING ABILITIES
+            // TARGETING ABILITIES (Feb 2026 rework)
             // ========================================
 
             case UnitAbilityType.TargetMark:
             {
-                // Marks a random enemy unit for 2x vulnerability
-                // Mark persists until the unit dies or is replaced
-                api.ApplyTargetMarkOnPlay(owner, enemy, unit);
+                // Destroys the weakest enemy unit (lowest ATK) when played
+                api.DestroyWeakestEnemyUnit(owner, enemy, unit);
                 break;
             }
 
             // ========================================
-            // PASSIVE COMBAT ABILITIES (NO ACTION NEEDED)
+            // DEBUFF ABILITIES (Feb 2026 rework)
             // ========================================
 
-            case UnitAbilityType.TauntRowFirst:
+            case UnitAbilityType.Taunt:
             {
-                // Taunt is a passive combat routing rule (handled in CombatResolver)
-                // Nothing to do here, but we log it for clarity
-                Debug.Log($"[ON-PLAY] {owner.Name} placed TAUNT unit: {unit.Name} (UnitId={unit.InstanceId})");
+                // Taunt lowers the ATK of a random enemy unit by 1
+                api.ReduceRandomEnemyATK(owner, enemy, unit, 1);
                 break;
             }
 
@@ -203,22 +207,9 @@ public static class AbilitySystem
         int finalAtk = baseAtk;
 
         // ========================================
-        // RPG: Double ATK if enemy has any alive tank
-        // ========================================
-        bool enemyHasTank = EnemyHasAliveTank(enemy);
-        if (unit.Ability == UnitAbilityType.DoubleAttackIfEnemyHasTank && enemyHasTank)
-        {
-            finalAtk *= 2;
-            activationInfo.AbilityActivated = true;
-            activationInfo.AbilityType = UnitAbilityType.DoubleAttackIfEnemyHasTank;
-            activationInfo.BonusATK = baseAtk; // Doubled means bonus = original ATK
-            activationInfo.Reason = "Enemy has tank";
-        }
-
-        // ========================================
         // 3-OF-A-KIND: Double ATK if 3+ copies in this row
         // ========================================
-        if (unit.Ability == UnitAbilityType.DoubleAttackIfThreeOfKindOnRow)
+        if (unit.Ability == UnitAbilityType.ThreeOfAKind)
         {
             if (aliveCountByNameOnRow != null &&
                 aliveCountByNameOnRow.TryGetValue(unit.Name, out int count) &&
@@ -226,24 +217,73 @@ public static class AbilitySystem
             {
                 finalAtk *= 2;
                 activationInfo.AbilityActivated = true;
-                activationInfo.AbilityType = UnitAbilityType.DoubleAttackIfThreeOfKindOnRow;
+                activationInfo.AbilityType = UnitAbilityType.ThreeOfAKind;
                 activationInfo.BonusATK = baseAtk;
                 activationInfo.Reason = $"3+ {unit.Name} in row";
             }
         }
 
         // ========================================
-        // FULL HEALTH: Double ATK if at max HP
+        // UNMATCHED: Double ATK if only one of this unit on field
         // ========================================
-        if (unit.Ability == UnitAbilityType.DoubleAttackIfFullHealth)
+        if (unit.Ability == UnitAbilityType.Unmatched)
         {
-            if (unit.HP == unit.MaxHP)
+            int totalCopiesOnField = CountTotalCopiesOnField(owner, unit.Name);
+            if (totalCopiesOnField == 1)
             {
                 finalAtk *= 2;
                 activationInfo.AbilityActivated = true;
-                activationInfo.AbilityType = UnitAbilityType.DoubleAttackIfFullHealth;
+                activationInfo.AbilityType = UnitAbilityType.Unmatched;
                 activationInfo.BonusATK = baseAtk;
-                activationInfo.Reason = "Full health";
+                activationInfo.Reason = "Unmatched";
+            }
+        }
+
+        // ========================================
+        // ARMOR PIERCING: +1 ATK per enemy ARMORED unit
+        // ========================================
+        if (unit.Ability == UnitAbilityType.ArmorPiercing)
+        {
+            int armoredCount = CountEnemyArmoredUnits(enemy);
+            if (armoredCount > 0)
+            {
+                finalAtk += armoredCount;
+                activationInfo.AbilityActivated = true;
+                activationInfo.AbilityType = UnitAbilityType.ArmorPiercing;
+                activationInfo.BonusATK = armoredCount;
+                activationInfo.Reason = $"+{armoredCount} vs Armored";
+            }
+        }
+
+        // ========================================
+        // SOS: Double ATK when commander HP below 20%
+        // ========================================
+        if (unit.Ability == UnitAbilityType.SOS && owner != null)
+        {
+            float hpPercent = (float)owner.CommanderHP / owner.CommanderMaxHP;
+            if (hpPercent < 0.2f)
+            {
+                finalAtk *= 2;
+                activationInfo.AbilityActivated = true;
+                activationInfo.AbilityType = UnitAbilityType.SOS;
+                activationInfo.BonusATK = baseAtk;
+                activationInfo.Reason = "SOS! Low HP";
+            }
+        }
+
+        // ========================================
+        // BROTHER IN ARMS: Double ATK if another copy exists
+        // ========================================
+        if (unit.Ability == UnitAbilityType.BrotherInArms)
+        {
+            int totalCopiesOnField = CountTotalCopiesOnField(owner, unit.Name);
+            if (totalCopiesOnField >= 2)
+            {
+                finalAtk *= 2;
+                activationInfo.AbilityActivated = true;
+                activationInfo.AbilityType = UnitAbilityType.BrotherInArms;
+                activationInfo.BonusATK = baseAtk;
+                activationInfo.Reason = "Brother in Arms!";
             }
         }
 
@@ -257,6 +297,19 @@ public static class AbilitySystem
         // they're just part of the battlefield state that affects combat calculations.
         //
         // DO NOT add ability activation tracking here for commander bonuses.
+
+        // ========================================
+        // SPECIAL CARD MODIFIERS (Barbed Wire, Trenches, etc.)
+        // ========================================
+        if (SpecialCards.GetATKModifierForUnit != null)
+        {
+            int specialMod = SpecialCards.GetATKModifierForUnit(owner, unit);
+            finalAtk += specialMod;
+            // Note: Special card modifiers are tracked separately, not as ability activations
+        }
+
+        // ATK cannot go below 0
+        finalAtk = Mathf.Max(0, finalAtk);
 
         return finalAtk;
     }
@@ -275,22 +328,54 @@ public static class AbilitySystem
     }
 
     /// <summary>
-    /// Checks if enemy has any alive tanks (for RPG ability).
-    /// Made public so FirepowerDisplay can use it.
+    /// Counts total copies of a unit by name on the player's entire field.
+    /// Used by: Unmatched (exactly 1 = bonus), BrotherInArms (2+ = bonus)
     /// </summary>
-    public static bool EnemyHasAliveTank(Player enemy)
+    public static int CountTotalCopiesOnField(Player player, string unitName)
     {
-        if (enemy == null || enemy.Rows == null) return false;
+        if (player == null || player.Rows == null || string.IsNullOrEmpty(unitName))
+            return 0;
 
+        int count = 0;
+        foreach (var row in player.Rows.Values)
+        {
+            foreach (var u in row.Units)
+            {
+                if (u != null && u.IsAlive && u.Name == unitName)
+                    count++;
+            }
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// Counts enemy units with the ARMORED ability.
+    /// Used by: Armor Piercing (+1 ATK per armored enemy)
+    /// </summary>
+    public static int CountEnemyArmoredUnits(Player enemy)
+    {
+        if (enemy == null || enemy.Rows == null) return 0;
+
+        int count = 0;
         foreach (var row in enemy.Rows.Values)
         {
             foreach (var u in row.Units)
             {
-                if (u != null && u.IsAlive && u.Type == UnitType.Vehicle)
-                    return true;
+                if (u != null && u.IsAlive && u.Ability == UnitAbilityType.Armored)
+                    count++;
             }
         }
-        return false;
+        return count;
+    }
+
+    /// <summary>
+    /// DEPRECATED: Old helper for tank checking.
+    /// Now use CountEnemyArmoredUnits for Armor Piercing ability.
+    /// </summary>
+    [System.Obsolete("Use CountEnemyArmoredUnits instead")]
+    public static bool EnemyHasAliveTank(Player enemy)
+    {
+        return CountEnemyArmoredUnits(enemy) > 0;
     }
 
     // ========================================
@@ -306,9 +391,9 @@ public static class AbilitySystem
     /// - Before damage streams are calculated
     ///
     /// ABILITY TYPES HANDLED HERE:
-    /// - Conditional ATK multipliers (RPG, 3-of-a-kind, full health)
+    /// - Conditional ATK multipliers (ArmorPiercing, ThreeOfAKind, Unmatched)
     /// - Row-wide buffs (future: Commander ability)
-    /// - Enemy-dependent modifiers (future: SOS below 50% HP)
+    /// - Enemy-dependent modifiers (SOS below 20% HP)
     ///
     /// RETURNS:
     /// Final ATK value for this unit (used in damage stream calculation)
@@ -319,50 +404,103 @@ public static class AbilitySystem
         Player enemy,
         RowType row,
         Dictionary<string, int> aliveCountByNameOnRow,
-        bool enemyHasTank,
+        bool enemyHasTank,  // DEPRECATED parameter, kept for compatibility
         CombatReport report,
         bool alsoDebugLog)
     {
         int atk = unit.ATK;
 
         // ========================================
-        // RPG: Double ATK if enemy has any alive tank
-        // ========================================
-        if (unit.Ability == UnitAbilityType.DoubleAttackIfEnemyHasTank && enemyHasTank)
-        {
-            atk *= 2;
-            AddAbilityEvent(report, alsoDebugLog,
-                $"[ABILITY] {owner.Name} {row}: '{unit.Name}' => enemy has tank, ATK doubled",
-                sourcePlayer: owner, sourceUnit: unit, row: row, amount: 2);
-        }
-
-        // ========================================
         // 3-OF-A-KIND: Double ATK if 3+ copies in this row
         // ========================================
-        if (unit.Ability == UnitAbilityType.DoubleAttackIfThreeOfKindOnRow)
+        if (unit.Ability == UnitAbilityType.ThreeOfAKind)
         {
             if (aliveCountByNameOnRow.TryGetValue(unit.Name, out int count) && count >= 3)
             {
                 atk *= 2;
                 AddAbilityEvent(report, alsoDebugLog,
-                    $"[SYNERGY] {owner.Name} {row}: {count}x '{unit.Name}' => double ATK (3-of-a-kind)",
+                    $"[3-OF-A-KIND] {owner.Name} {row}: {count}x '{unit.Name}' => double ATK",
                     sourcePlayer: owner, sourceUnit: unit, row: row, amount: 2);
             }
         }
 
         // ========================================
-        // FULL HEALTH: Double ATK if at max HP
+        // UNMATCHED: Double ATK if only one of this unit on field
         // ========================================
-        if (unit.Ability == UnitAbilityType.DoubleAttackIfFullHealth)
+        if (unit.Ability == UnitAbilityType.Unmatched)
         {
-            if (unit.HP == unit.MaxHP)
+            int totalCopiesOnField = CountTotalCopiesOnField(owner, unit.Name);
+            if (totalCopiesOnField == 1)
             {
                 atk *= 2;
                 AddAbilityEvent(report, alsoDebugLog,
-                    $"[ABILITY] {owner.Name} {row}: '{unit.Name}' full HP ({unit.HP}/{unit.MaxHP}) => double ATK",
+                    $"[UNMATCHED] {owner.Name} {row}: '{unit.Name}' is unique => double ATK",
                     sourcePlayer: owner, sourceUnit: unit, row: row, amount: 2);
             }
         }
+
+        // ========================================
+        // ARMOR PIERCING: +1 ATK per enemy ARMORED unit
+        // ========================================
+        if (unit.Ability == UnitAbilityType.ArmorPiercing)
+        {
+            int armoredCount = CountEnemyArmoredUnits(enemy);
+            if (armoredCount > 0)
+            {
+                atk += armoredCount;
+                AddAbilityEvent(report, alsoDebugLog,
+                    $"[ARMOR PIERCING] {owner.Name} {row}: '{unit.Name}' +{armoredCount} ATK vs {armoredCount} armored",
+                    sourcePlayer: owner, sourceUnit: unit, row: row, amount: armoredCount);
+            }
+        }
+
+        // ========================================
+        // SOS: Double ATK when commander HP below 20%
+        // ========================================
+        if (unit.Ability == UnitAbilityType.SOS && owner != null)
+        {
+            float hpPercent = (float)owner.CommanderHP / Mathf.Max(1, owner.CommanderMaxHP);
+            if (hpPercent < 0.2f)
+            {
+                atk *= 2;
+                AddAbilityEvent(report, alsoDebugLog,
+                    $"[SOS] {owner.Name} {row}: '{unit.Name}' => double ATK (commander at {hpPercent:P0})",
+                    sourcePlayer: owner, sourceUnit: unit, row: row, amount: 2);
+            }
+        }
+
+        // ========================================
+        // BROTHER IN ARMS: Double ATK if another copy exists
+        // ========================================
+        if (unit.Ability == UnitAbilityType.BrotherInArms)
+        {
+            int totalCopiesOnField = CountTotalCopiesOnField(owner, unit.Name);
+            if (totalCopiesOnField >= 2)
+            {
+                atk *= 2;
+                AddAbilityEvent(report, alsoDebugLog,
+                    $"[BROTHER IN ARMS] {owner.Name} {row}: '{unit.Name}' has {totalCopiesOnField} copies => double ATK",
+                    sourcePlayer: owner, sourceUnit: unit, row: row, amount: 2);
+            }
+        }
+
+        // ========================================
+        // SPECIAL CARD MODIFIERS (Barbed Wire, Trenches, etc.)
+        // ========================================
+        if (SpecialCards.GetATKModifierForUnit != null)
+        {
+            int specialMod = SpecialCards.GetATKModifierForUnit(owner, unit);
+            if (specialMod != 0)
+            {
+                atk += specialMod;
+                AddAbilityEvent(report, alsoDebugLog,
+                    $"[SPECIAL CARD] {owner.Name} {row}: '{unit.Name}' ATK {(specialMod > 0 ? "+" : "")}{specialMod}",
+                    sourcePlayer: owner, sourceUnit: unit, row: row, amount: specialMod);
+            }
+        }
+
+        // ATK cannot go below 0
+        atk = Mathf.Max(0, atk);
 
         return atk;
     }
@@ -372,28 +510,23 @@ public static class AbilitySystem
     // ========================================
 
     /// <summary>
-    /// Calculates commander bypass damage for a unit (Navy Seal ability).
-    /// 
-    /// COMMANDER BYPASS:
-    /// - Damage goes directly to enemy commander (ignores units entirely)
-    /// - Applied BEFORE main damage streams
-    /// - Based on unit's ATK × multiplier (typically 25%)
-    /// 
-    /// EXAMPLE:
-    /// Navy Seal with 6 ATK and 25% multiplier = 1.5 → 2 bypass damage
-    /// 
+    /// Calculates commander bypass damage for a unit (Navy Seal "Direct Attack" ability).
+    ///
+    /// DIRECT ATTACK (Feb 2026 rework):
+    /// - Flat 5 damage directly to enemy commander (ignores units entirely)
+    /// - Applied during combat resolution
+    /// - Changed from percentage-based (25% of ATK) to flat damage
+    ///
     /// RETURNS:
-    /// Bypass damage amount (0 if unit doesn't have this ability)
+    /// Bypass damage amount (0 if unit doesn't have this ability, 5 if it does)
     /// </summary>
     public static int GetCommanderBypassDamage(Unit unit)
     {
-        if (unit.Ability != UnitAbilityType.CommanderBypassDamage25Percent)
+        if (unit.Ability != UnitAbilityType.DirectAttack)
             return 0;
 
-        float m = unit.AbilityData.Multiplier;
-        if (m <= 0f) m = 0.25f; // Default 25% for Navy Seal
-
-        return Mathf.RoundToInt(unit.ATK * m);
+        // Flat 5 damage
+        return 5;
     }
 
     // ========================================
@@ -401,13 +534,12 @@ public static class AbilitySystem
     // ========================================
     // NOTE: This section is currently handled directly in CombatResolver
     // because damage resolution is tightly coupled with the streaming algorithm.
-    // 
+    //
     // The following abilities are implemented in CombatResolver.ResolveIncomingDamageForUnit:
-    // - ReduceIncomingDamage50Percent (Armored Tank)
-    // - ArmorPiercing (disables damage reduction)
-    // - TargetMark (2x HP damage vulnerability)
-    // - Counterattack (50% damage back to attacker)
-    // 
+    // - Armored (ATK protection)
+    // - TargetMark (destroy weakest)
+    // - Counterattack (1 damage to commander on death)
+    //
     // If we wanted to centralize them here, we'd need to create a more complex
     // damage resolution API. For now, keeping them in CombatResolver is cleaner.
 
@@ -417,7 +549,7 @@ public static class AbilitySystem
 
     /// <summary>
     /// Adds an ability-triggered event to the combat report.
-    /// 
+    ///
     /// WHY NOT USE Debug.Log DIRECTLY?
     /// - CombatResolver controls console noise (simulation should be quiet by default)
     /// - All events go into the report for playback/UI display
@@ -455,42 +587,35 @@ public static class AbilitySystem
 }
 
 // ========================================
-// ABILITY CATALOG (FOR REFERENCE)
+// ABILITY CATALOG (Feb 2026 Rework)
 // ========================================
 // This section documents all abilities currently in the game.
 // Update this list when adding new abilities!
 //
 // === ON-PLAY ABILITIES (Buy Phase) ===
-// - GainGoldOnPlay: Immediately gain gold when placed
-// - DuplicateSelfFromDeckOnPlay: Play another copy from deck if available
-// - DestroyStrongestEnemyVehicleIfEnemyVehicleRowIsFullOnPlay: Conditional destruction
-// - TargetMark: Mark a random enemy unit for 2x vulnerability
-// - TauntRowFirst: Passive - forces damage to this row first
+// - MrMoneybags: Gain gold when placed
+// - Duplicate: Play another copy from deck if available
+// - DestroyStrongestVehicle: Destroys strongest enemy vehicle if row is full
+// - TargetMark: Destroys weakest enemy unit (lowest ATK)
+// - Taunt: Lowers random enemy unit ATK by 1
 //
-// === COMBAT ABILITIES (Attack Snapshot) ===
-// - DoubleAttackIfEnemyHasTank: RPG - 2x ATK if enemy has vehicles
-// - DoubleAttackIfThreeOfKindOnRow: 3-of-a-kind synergy - 2x ATK if 3+ copies
-// - DoubleAttackIfFullHealth: 2x ATK if at max HP
+// === COMBAT ATK MODIFIERS ===
+// - ThreeOfAKind: 2x ATK if 3+ copies in row
+// - Unmatched: 2x ATK if only one copy on field
+// - ArmorPiercing: +1 ATK per enemy ARMORED unit
+// - SOS: 2x ATK when commander HP below 20%
+// - BrotherInArms: 2x ATK if another copy on field
 //
-// === COMBAT ABILITIES (Commander Bypass) ===
-// - CommanderBypassDamage25Percent: Navy Seal - 25% of ATK goes directly to commander
+// === COMMANDER DAMAGE ABILITIES ===
+// - DirectAttack: Flat 5 damage to commander
+// - Counterattack: Deals 1 commander damage when destroyed
 //
-// === COMBAT ABILITIES (Damage Modification) ===
-// - ReduceIncomingDamage50Percent: Armored Tank - takes 50% damage (or dies if overwhelmed)
-// - ArmorPiercing: Disables ReduceIncomingDamage50Percent on enemies
-// - Counterattack: Damaged units deal 50% damage back to attacker
-// - TargetMark (passive): Marked units take 2x HP damage from streams
+// === DEFENSIVE ABILITIES ===
+// - Armored: ATK cannot be reduced by abilities
+// - Persist: Survives combat if owner won or tied
 //
 // === FUTURE ABILITIES (Planned) ===
-// - Snipe: Deals damage directly to back row
-// - SOS: Double damage if commander HP below 50%
-// - Buddy System: Double damage if placed next to same unit type
 // - Commander: Doubles ATK of all units in row
-// - Mechanic: Doubles HP of all units in row
+// - Mechanic: Adds HP to commander
 // - Spy: Infiltrate enemy field, gain gold while alive
-// - Sabotage: Destroy strongest infantry if enemy infantry row full
-// - Bombard: Destroy strongest ranged if 3+ ranged units fielded
-// - Death from Below: Destroy strongest air if enemy air row full
-// - Last Stand: Survive with 1 HP, absorb total damage
-// - From the Grave: Deal 5 damage upon death
 //

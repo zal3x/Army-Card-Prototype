@@ -241,13 +241,13 @@ public class PerkSystem : MonoBehaviour
 
         foreach (var card in progress.ownedCards)
         {
-            if (card.bonusAtk == 0 && card.bonusHp == 0)
+            if (card.bonusAtk == 0)
                 eligibleCards.Add(card);
         }
 
         foreach (var card in progress.currentDeck)
         {
-            if (card.bonusAtk == 0 && card.bonusHp == 0)
+            if (card.bonusAtk == 0)
                 eligibleCards.Add(card);
         }
 
@@ -257,12 +257,11 @@ public class PerkSystem : MonoBehaviour
             return;
         }
 
-        // Pick a random card and apply +1/+1
+        // Pick a random card and apply +1 ATK (units have no HP in the new combat system)
         var chosen = eligibleCards[UnityEngine.Random.Range(0, eligibleCards.Count)];
         chosen.bonusAtk += 1;
-        chosen.bonusHp += 1;
 
-        Debug.Log($"[PerkSystem] Medals: Applied +1/+1 to {chosen.definition?.cardName ?? "unknown"}");
+        Debug.Log($"[PerkSystem] Medals: Applied +1 ATK to {chosen.definition?.cardName ?? "unknown"}");
     }
 
     /// <summary>

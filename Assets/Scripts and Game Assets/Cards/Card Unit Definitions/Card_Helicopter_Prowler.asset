@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
   cardName: Helicopter
   type: 2
-  cost: 10
-  hp: 45
-  atk: 28
+  cost: 5
+  hp: 0
+  atk: 10
   rarity: 0
   ability: 0
   countsAsVehicle: 0

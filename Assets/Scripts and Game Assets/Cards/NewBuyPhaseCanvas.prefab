@@ -718,14 +718,21 @@ MonoBehaviour:
   rangedCardPrefab: {fileID: 0}
   cardContainer: {fileID: 2518223603534570759}
   cardSpacing: 150
+  sideCardSpacingMultiplier: 1
+  baseCardScale: 1
   centerScale: 1.2
   sideScale: 0.8
   centerYOffset: 20
+  centerAlpha: 1
+  sideAlpha: 0.5
   scrollSpeed: 10
   dragThreshold: 10
   snapToCenter: 1
   allowKeyboardInput: 1
   clickCooldown: 0.1
+  inputEnabled: 1
+  requirePointerOverThisCarousel: 1
+  specialCardPrefab: {fileID: 0}
 --- !u!1 &507167731976628144
 GameObject:
   m_ObjectHideFlags: 0
@@ -1272,9 +1279,46 @@ MonoBehaviour:
   rankText: {fileID: 6794704282636487766}
   hoverScale: 1.05
   hoverAnimDuration: 0.15
+  hoverDelay: 0.2
   hoverGlow: {fileID: 5155186684308695959}
   isSelected: 0
   selectionOutline: {fileID: 0}
+  flightDuration: 0.5
+  scaleDuringFlight: 1
+  flightStartScaleMult: 1
+  flightEndScaleMult: 0.65
+  shrinkStartT: 0.75
+  shrinkCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  arcHeight: 0.3
+  worldCameraOverride: {fileID: 0}
+  flightLayerOverride: {fileID: 0}
+  scaleAtTakeoff: 1
+  scaleAtLanding: 0.6
+  useInternalFlightScaling: 1
+  specialPortraitSize: {x: 111, y: 111}
 --- !u!1 &702883352934880860
 GameObject:
   m_ObjectHideFlags: 0
@@ -3781,9 +3825,46 @@ MonoBehaviour:
   rankText: {fileID: 3744021447711885595}
   hoverScale: 1.05
   hoverAnimDuration: 0.15
+  hoverDelay: 0.2
   hoverGlow: {fileID: 5433929910127645749}
   isSelected: 0
   selectionOutline: {fileID: 0}
+  flightDuration: 0.5
+  scaleDuringFlight: 1
+  flightStartScaleMult: 1
+  flightEndScaleMult: 0.65
+  shrinkStartT: 0.75
+  shrinkCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  arcHeight: 0.3
+  worldCameraOverride: {fileID: 0}
+  flightLayerOverride: {fileID: 0}
+  scaleAtTakeoff: 1
+  scaleAtLanding: 0.6
+  useInternalFlightScaling: 1
+  specialPortraitSize: {x: 111, y: 111}
 --- !u!1 &1840234433880235888
 GameObject:
   m_ObjectHideFlags: 0
@@ -4360,6 +4441,9 @@ MonoBehaviour:
   enemyBoughtText: {fileID: 3456850185933373295}
   passButton: {fileID: 1887964312297410178}
   cardCarousel: {fileID: 1980234165077725566}
+  revealOverlay: {fileID: 0}
+  tooltipPanel: {fileID: 0}
+  tooltipText: {fileID: 0}
 --- !u!1 &2226704557080423394
 GameObject:
   m_ObjectHideFlags: 0
@@ -5167,9 +5251,46 @@ MonoBehaviour:
   rankText: {fileID: 2115068100534114966}
   hoverScale: 1.05
   hoverAnimDuration: 0.15
+  hoverDelay: 0.2
   hoverGlow: {fileID: 910014528309499377}
   isSelected: 0
   selectionOutline: {fileID: 0}
+  flightDuration: 0.5
+  scaleDuringFlight: 1
+  flightStartScaleMult: 1
+  flightEndScaleMult: 0.65
+  shrinkStartT: 0.75
+  shrinkCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  arcHeight: 0.3
+  worldCameraOverride: {fileID: 0}
+  flightLayerOverride: {fileID: 0}
+  scaleAtTakeoff: 1
+  scaleAtLanding: 0.6
+  useInternalFlightScaling: 1
+  specialPortraitSize: {x: 111, y: 111}
 --- !u!1 &2662602998970635179
 GameObject:
   m_ObjectHideFlags: 0
@@ -7510,9 +7631,46 @@ MonoBehaviour:
   rankText: {fileID: 5651004823266706120}
   hoverScale: 1.05
   hoverAnimDuration: 0.15
+  hoverDelay: 0.2
   hoverGlow: {fileID: 5394195204029805372}
   isSelected: 0
   selectionOutline: {fileID: 0}
+  flightDuration: 0.5
+  scaleDuringFlight: 1
+  flightStartScaleMult: 1
+  flightEndScaleMult: 0.65
+  shrinkStartT: 0.75
+  shrinkCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  arcHeight: 0.3
+  worldCameraOverride: {fileID: 0}
+  flightLayerOverride: {fileID: 0}
+  scaleAtTakeoff: 1
+  scaleAtLanding: 0.6
+  useInternalFlightScaling: 1
+  specialPortraitSize: {x: 111, y: 111}
 --- !u!1 &4008730184859850130
 GameObject:
   m_ObjectHideFlags: 0
@@ -7772,9 +7930,46 @@ MonoBehaviour:
   rankText: {fileID: 3616453962433437906}
   hoverScale: 1.05
   hoverAnimDuration: 0.15
+  hoverDelay: 0.2
   hoverGlow: {fileID: 4390598980080644351}
   isSelected: 0
   selectionOutline: {fileID: 0}
+  flightDuration: 0.5
+  scaleDuringFlight: 1
+  flightStartScaleMult: 1
+  flightEndScaleMult: 0.65
+  shrinkStartT: 0.75
+  shrinkCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  arcHeight: 0.3
+  worldCameraOverride: {fileID: 0}
+  flightLayerOverride: {fileID: 0}
+  scaleAtTakeoff: 1
+  scaleAtLanding: 0.6
+  useInternalFlightScaling: 1
+  specialPortraitSize: {x: 111, y: 111}
 --- !u!1 &4180244333553934692
 GameObject:
   m_ObjectHideFlags: 0
@@ -9567,9 +9762,46 @@ MonoBehaviour:
   rankText: {fileID: 5717035504925651229}
   hoverScale: 1.05
   hoverAnimDuration: 0.15
+  hoverDelay: 0.2
   hoverGlow: {fileID: 994221559774555354}
   isSelected: 1
   selectionOutline: {fileID: 0}
+  flightDuration: 0.5
+  scaleDuringFlight: 1
+  flightStartScaleMult: 1
+  flightEndScaleMult: 0.65
+  shrinkStartT: 0.75
+  shrinkCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  arcHeight: 0.3
+  worldCameraOverride: {fileID: 0}
+  flightLayerOverride: {fileID: 0}
+  scaleAtTakeoff: 1
+  scaleAtLanding: 0.6
+  useInternalFlightScaling: 1
+  specialPortraitSize: {x: 111, y: 111}
 --- !u!1 &5682943120464475565
 GameObject:
   m_ObjectHideFlags: 0
@@ -10478,9 +10710,46 @@ MonoBehaviour:
   rankText: {fileID: 6486632538193528482}
   hoverScale: 1.05
   hoverAnimDuration: 0.15
+  hoverDelay: 0.2
   hoverGlow: {fileID: 6714437137011228109}
   isSelected: 0
   selectionOutline: {fileID: 0}
+  flightDuration: 0.5
+  scaleDuringFlight: 1
+  flightStartScaleMult: 1
+  flightEndScaleMult: 0.65
+  shrinkStartT: 0.75
+  shrinkCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  arcHeight: 0.3
+  worldCameraOverride: {fileID: 0}
+  flightLayerOverride: {fileID: 0}
+  scaleAtTakeoff: 1
+  scaleAtLanding: 0.6
+  useInternalFlightScaling: 1
+  specialPortraitSize: {x: 111, y: 111}
 --- !u!1 &6155712460350726431
 GameObject:
   m_ObjectHideFlags: 0
@@ -11725,9 +11994,46 @@ MonoBehaviour:
   rankText: {fileID: 1591676418576541942}
   hoverScale: 1.05
   hoverAnimDuration: 0.15
+  hoverDelay: 0.2
   hoverGlow: {fileID: 9047477225133359179}
   isSelected: 0
   selectionOutline: {fileID: 0}
+  flightDuration: 0.5
+  scaleDuringFlight: 1
+  flightStartScaleMult: 1
+  flightEndScaleMult: 0.65
+  shrinkStartT: 0.75
+  shrinkCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  arcHeight: 0.3
+  worldCameraOverride: {fileID: 0}
+  flightLayerOverride: {fileID: 0}
+  scaleAtTakeoff: 1
+  scaleAtLanding: 0.6
+  useInternalFlightScaling: 1
+  specialPortraitSize: {x: 111, y: 111}
 --- !u!1 &6844356312747319099
 GameObject:
   m_ObjectHideFlags: 0
@@ -12199,9 +12505,46 @@ MonoBehaviour:
   rankText: {fileID: 7259225022744341600}
   hoverScale: 1.05
   hoverAnimDuration: 0.15
+  hoverDelay: 0.2
   hoverGlow: {fileID: 3928794579219466785}
   isSelected: 0
   selectionOutline: {fileID: 0}
+  flightDuration: 0.5
+  scaleDuringFlight: 1
+  flightStartScaleMult: 1
+  flightEndScaleMult: 0.65
+  shrinkStartT: 0.75
+  shrinkCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  arcHeight: 0.3
+  worldCameraOverride: {fileID: 0}
+  flightLayerOverride: {fileID: 0}
+  scaleAtTakeoff: 1
+  scaleAtLanding: 0.6
+  useInternalFlightScaling: 1
+  specialPortraitSize: {x: 111, y: 111}
 --- !u!1 &7773610315548416937
 GameObject:
   m_ObjectHideFlags: 0
@@ -12947,9 +13290,46 @@ MonoBehaviour:
   rankText: {fileID: 3083337184771241506}
   hoverScale: 1.05
   hoverAnimDuration: 0.15
+  hoverDelay: 0.2
   hoverGlow: {fileID: 5757492357797818885}
   isSelected: 0
   selectionOutline: {fileID: 0}
+  flightDuration: 0.5
+  scaleDuringFlight: 1
+  flightStartScaleMult: 1
+  flightEndScaleMult: 0.65
+  shrinkStartT: 0.75
+  shrinkCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  arcHeight: 0.3
+  worldCameraOverride: {fileID: 0}
+  flightLayerOverride: {fileID: 0}
+  scaleAtTakeoff: 1
+  scaleAtLanding: 0.6
+  useInternalFlightScaling: 1
+  specialPortraitSize: {x: 111, y: 111}
 --- !u!1 &8119185061249156525
 GameObject:
   m_ObjectHideFlags: 0

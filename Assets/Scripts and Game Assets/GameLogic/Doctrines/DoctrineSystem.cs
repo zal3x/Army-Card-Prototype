@@ -296,7 +296,8 @@ public class DoctrineSystem : MonoBehaviour
 
     /// <summary>
     /// Check if Reinforcements doctrine should trigger.
-    /// Returns true if should spawn an infantry unit.
+    /// Returns true if the player has the doctrine and it hasn't fired yet this battle.
+    /// Call this when the player's commander takes damage.
     /// </summary>
     public bool ShouldSpawnReinforcement(Player player)
     {
@@ -305,7 +306,7 @@ public class DoctrineSystem : MonoBehaviour
 
         foreach (var doctrine in GetActiveDoctrines(player))
         {
-            if (doctrine.effectType == DoctrineEffectType.SpawnOnArmyDefeated)
+            if (doctrine.effectType == DoctrineEffectType.SpawnOnCommanderDamaged)
             {
                 reinforcementsUsed[player] = true;
                 return true;

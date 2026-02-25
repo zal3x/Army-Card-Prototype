@@ -36,7 +36,7 @@ using System.Collections.Generic;
 /// - "Exile" pile (permanently removed cards)
 /// - Deck statistics (cards remaining, reshuffle count, etc.)
 /// </summary>
-public class SimpleDeck
+public class SimpleDeck 
 {
     // ========================================
     // PRIVATE STATE
@@ -211,7 +211,7 @@ public class SimpleDeck
     /// 2. Discard pile (backwards, for removal efficiency)
     /// 
     /// USE CASES:
-    /// - DuplicateSelfFromDeckOnPlay ability (find another copy of a unit)
+    /// - Duplicate ability (find another copy of a unit)
     /// - Card tutoring effects (search for specific card type)
     /// - Exile effects (permanently remove cards from deck)
     /// 
@@ -281,7 +281,69 @@ public UnitCard TryRemoveFirstMatchingFromDiscard(System.Predicate<UnitCard> mat
     return null;
 }
 
-     //ability to see opponent hand
+    // ========================================
+    // DISCARD PILE ACCESS
+    // ========================================
+
+    /// <summary>
+    /// Number of cards currently in the discard pile.
+    /// Useful for checking if POW (take from discard) can be played.
+    /// </summary>
+    public int DiscardCount => discardPile.Count;
+
+    /// <summary>
+    /// Number of cards currently in the draw pile.
+    /// </summary>
+    public int DrawCount => drawPile.Count;
+
+    /// <summary>
+    /// Gets a copy of the discard pile for UI display (e.g., POW card selection).
+    /// Returns cloned cards to prevent mutation.
+    /// </summary>
+    public List<UnitCard> GetDiscardPileSnapshot()
+    {
+        var snapshot = new List<UnitCard>(discardPile.Count);
+        foreach (var card in discardPile)
+        {
+            if (card != null)
+                snapshot.Add(card.Clone());
+        }
+        return snapshot;
+    }
+
+    /// <summary>
+    /// Removes a specific card from the discard pile by index.
+    /// Used by POW to take a card from enemy discard.
+    /// </summary>
+    public UnitCard RemoveFromDiscardAt(int index)
+    {
+        if (index < 0 || index >= discardPile.Count)
+            return null;
+
+        UnitCard card = discardPile[index];
+        discardPile.RemoveAt(index);
+        return card;
+    }
+
+    /// <summary>
+    /// Removes a specific card from the discard pile by matching predicate.
+    /// Returns the removed card, or null if not found.
+    /// </summary>
+    public UnitCard RemoveFromDiscardByName(string cardName)
+    {
+        for (int i = discardPile.Count - 1; i >= 0; i--)
+        {
+            if (discardPile[i] != null && discardPile[i].Name == cardName)
+            {
+                UnitCard found = discardPile[i];
+                discardPile.RemoveAt(i);
+                return found;
+            }
+        }
+        return null;
+    }
+
+    //ability to see opponent hand
 
 public List<UnitCard> PeekTop(int count)
 {
@@ -298,7 +360,7 @@ int n = Math.Max(0, Math.Min(count, drawPile.Count));
 
     return result;
 }
-}
+} 
 
 // ========================================
 // USAGE EXAMPLES

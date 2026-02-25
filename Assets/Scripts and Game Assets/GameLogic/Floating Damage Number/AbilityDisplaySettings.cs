@@ -35,14 +35,14 @@ public class AbilityDisplaySettings : ScriptableObject
     [Tooltip("Configure display text for each ability type")]
     public AbilityDisplayEntry[] abilityDisplays = new AbilityDisplayEntry[]
     {
-        new AbilityDisplayEntry { abilityType = UnitAbilityType.DoubleAttackIfThreeOfKindOnRow, displayText = "x2 ATK" },
-        new AbilityDisplayEntry { abilityType = UnitAbilityType.DoubleAttackIfFullHealth, displayText = "x2 ATK" },
-        new AbilityDisplayEntry { abilityType = UnitAbilityType.DoubleAttackIfEnemyHasTank, displayText = "x2 ATK" },
-        new AbilityDisplayEntry { abilityType = UnitAbilityType.ReduceIncomingDamage50Percent, displayText = "ARMORED", textColor = new Color(0.5f, 0.5f, 1f) },
-        new AbilityDisplayEntry { abilityType = UnitAbilityType.DuplicateSelfFromDeckOnPlay, displayText = "DUPLICATE", textColor = new Color(0.3f, 1f, 0.8f) },
+        new AbilityDisplayEntry { abilityType = UnitAbilityType.ThreeOfAKind, displayText = "x2 ATK" },
+        new AbilityDisplayEntry { abilityType = UnitAbilityType.Unmatched, displayText = "x2 ATK" },
+        new AbilityDisplayEntry { abilityType = UnitAbilityType.ArmorPiercing, displayText = "x2 ATK" },
+        new AbilityDisplayEntry { abilityType = UnitAbilityType.Armored, displayText = "ARMORED", textColor = new Color(0.5f, 0.5f, 1f) },
+        new AbilityDisplayEntry { abilityType = UnitAbilityType.Duplicate, displayText = "DUPLICATE", textColor = new Color(0.3f, 1f, 0.8f) },
         new AbilityDisplayEntry { abilityType = UnitAbilityType.TargetMark, displayText = "MARKED", textColor = new Color(1f, 0.3f, 0.3f) },
-        new AbilityDisplayEntry { abilityType = UnitAbilityType.GainGoldOnPlay, displayText = "+GOLD", textColor = new Color(1f, 0.85f, 0.1f) },
-        new AbilityDisplayEntry { abilityType = UnitAbilityType.CommanderBypassDamage25Percent, displayText = "BYPASS", textColor = new Color(1f, 0.5f, 0f) }, // Orange
+        new AbilityDisplayEntry { abilityType = UnitAbilityType.MrMoneybags, displayText = "+GOLD", textColor = new Color(1f, 0.85f, 0.1f) },
+        new AbilityDisplayEntry { abilityType = UnitAbilityType.DirectAttack, displayText = "BYPASS", textColor = new Color(1f, 0.5f, 0f) }, // Orange
         new AbilityDisplayEntry { abilityType = UnitAbilityType.Counterattack, displayText = "COUNTER", textColor = new Color(0.8f, 0.2f, 0.8f) }, // Purple
         // NOTE: Commander bonuses are NOT abilities - they are permanent stat changes applied at battle start.
         // Do not add CommanderBonusActivation here.

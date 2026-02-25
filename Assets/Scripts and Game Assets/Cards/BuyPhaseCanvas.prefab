@@ -95,14 +95,21 @@ MonoBehaviour:
   rangedCardPrefab: {fileID: 0}
   cardContainer: {fileID: 3673365366023296265}
   cardSpacing: 150
+  sideCardSpacingMultiplier: 1
+  baseCardScale: 1
   centerScale: 1.2
   sideScale: 0.8
   centerYOffset: 20
+  centerAlpha: 1
+  sideAlpha: 0.5
   scrollSpeed: 10
   dragThreshold: 10
   snapToCenter: 1
   allowKeyboardInput: 1
   clickCooldown: 0.1
+  inputEnabled: 1
+  requirePointerOverThisCarousel: 1
+  specialCardPrefab: {fileID: 0}
 --- !u!1 &2403435156876619168
 GameObject:
   m_ObjectHideFlags: 0
@@ -502,6 +509,9 @@ MonoBehaviour:
   enemyBoughtText: {fileID: 1405608824416042765}
   passButton: {fileID: 5587833957815852050}
   cardCarousel: {fileID: 1816823346406559671}
+  revealOverlay: {fileID: 0}
+  tooltipPanel: {fileID: 0}
+  tooltipText: {fileID: 0}
 --- !u!1 &5042492007039728039
 GameObject:
   m_ObjectHideFlags: 0

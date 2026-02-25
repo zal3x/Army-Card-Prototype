@@ -3,35 +3,25 @@ using System.Collections.Generic;
 
 /// <summary>
 /// CombatResolver: The core combat simulation engine.
-/// 
+///
 /// DESIGN PHILOSOPHY:
 /// - Pure simulation (no rendering, no UI, no coroutines)
 /// - Deterministic and event-driven
 /// - Generates a CombatReport that can be replayed by CombatPlayback
-/// 
+///
+/// NEW COMBAT SYSTEM (Feb 2026):
+/// - Units no longer have HP - only commanders have HP
+/// - Combat is resolved by comparing TOTAL ATK
+/// - Winner (higher ATK) deals damage = difference in totals
+/// - All units are destroyed after combat (unless they have PERSIST ability)
+/// - Row stats are tracked for future special cards
+///
 /// COMBAT FLOW:
-/// 1. Pre-emptive Strike Phase (simultaneous)
-///    - Units with pre-emptive abilities strike first
-///    - All strikes resolve simultaneously
-///    - Dead units don't contribute to main combat
-/// 
-/// 2. Main Combat Phase
-///    a) Snapshot total ATK for both sides (abilities apply here)
-///    b) Calculate commander bypass damage (Navy Seal ability)
-///    c) Apply main damage streams (Front → Middle → Back)
-///    d) Collect counterattack damage
-///    e) Apply counterattack streams (no further counters)
-/// 
-/// 3. Cleanup Phase
-///    - Remove dead units from rows
-///    - Move dead units to discard piles
-/// 
-/// KEY SYSTEMS:
-/// - Damage Streaming: Damage flows through units like water through pipes
-/// - Armor Piercing: Disables damage reduction abilities
-/// - Target Marking: Marked units take 2x HP damage per stream damage
-/// - Counterattack: Damaged units deal 50% damage back
-/// - Taunt: Forces damage to a specific row first
+/// 1. Pre-emptive Phase (STUBBED - will be redesigned to target commander/army)
+/// 2. Calculate total ATK for both sides (abilities still apply)
+/// 3. Determine winner (higher total ATK)
+/// 4. Apply commander damage = |ATK_A - ATK_B| to loser
+/// 5. Mark all units as dead (except PERSIST units on winning/tied side)
 /// </summary>
 public static class CombatResolver
 {
@@ -41,18 +31,22 @@ public static class CombatResolver
 
     /// <summary>
     /// Main entry point: resolves combat between two players.
-    /// 
+    ///
+    /// NEW COMBAT SYSTEM:
+    /// - Compare total ATK of both players
+    /// - Loser takes damage = difference in ATK totals
+    /// - All units are marked as dead (except PERSIST ability on winning/tied side)
+    ///
     /// PARAMETERS:
     /// - a, b: The two players fighting
-    /// - alsoDebugLog: If true, prints DebugNote events to console (normally false)
-    /// 
+    /// - alsoDebugLog: If true, prints DebugNote events to console
+    ///
     /// RETURNS:
-    /// A CombatReport containing all events in order (for playback/UI)
-    /// 
+    /// A CombatReport containing all events for playback
+    ///
     /// SIDE EFFECTS:
-    /// - Modifies unit HP
     /// - Modifies commander HP
-    /// - Removes dead units from rows (moved to discard pile)
+    /// - Marks units as dead (IsAlive = false)
     /// </summary>
     public static CombatReport ResolveCombat(Player a, Player b, bool alsoDebugLog = false)
     {
@@ -61,7 +55,7 @@ public static class CombatResolver
         // Log combat start
         AddEvent(report, new CombatEvent
         {
-            Type = CombatEventType.DebugNote,
+            Type = CombatEventType.CombatStart,
             Note = "Combat started"
         }, alsoDebugLog);
 
@@ -77,48 +71,44 @@ public static class CombatResolver
             Note = $"{b.Name} Commander HP: {b.CommanderHP}"
         }, alsoDebugLog);
 
-        // Announce existing target marks (set during buy phase)
-        EmitTargetMarkedEvents(a, report, alsoDebugLog);
-        EmitTargetMarkedEvents(b, report, alsoDebugLog);
-
-        // Store starting unit counts BEFORE any combat damage
-        // Used by playback to know when a row is completely wiped
+        // Store starting unit counts (for playback visual tracking)
         var countsA = CountUnitsByType(a);
         var countsB = CountUnitsByType(b);
         report.SetStartingCounts(countsA, countsB);
 
-        // PHASE 1: Pre-emptive strikes (simultaneous)
-        ResolvePreemptivePhase(a, b, report, alsoDebugLog);
+        // PHASE 1: Pre-emptive strikes
+        // TODO: Redesign pre-emptive system to target commander or army
+        // For now, pre-emptive strikes are disabled
+        AddEvent(report, new CombatEvent
+        {
+            Type = CombatEventType.DebugNote,
+            Note = "[PRE-EMPTIVE] System disabled pending redesign"
+        }, alsoDebugLog);
 
-        // PHASE 2: Main combat
-        // Snapshot attack totals AFTER pre-emptive kills
-       var atkBucketsA = CalculateAttackBuckets(owner: a, enemy: b, report: report, alsoDebugLog: alsoDebugLog);
-var atkBucketsB = CalculateAttackBuckets(owner: b, enemy: a, report: report, alsoDebugLog: alsoDebugLog);
+        // PHASE 2: Calculate total ATK for both sides
+        // Row-level stats are tracked for future special cards
+        var atkBucketsA = CalculateAttackBuckets(owner: a, enemy: b, report: report, alsoDebugLog: alsoDebugLog);
+        var atkBucketsB = CalculateAttackBuckets(owner: b, enemy: a, report: report, alsoDebugLog: alsoDebugLog);
 
-int totalAtkA =
-    atkBucketsA[UnitType.Infantry] +
-    atkBucketsA[UnitType.Vehicle] +
-    atkBucketsA[UnitType.Air] +
-    atkBucketsA[UnitType.Ranged];
+        int totalAtkA =
+            atkBucketsA[UnitType.Infantry] +
+            atkBucketsA[UnitType.Vehicle] +
+            atkBucketsA[UnitType.Air] +
+            atkBucketsA[UnitType.Ranged];
 
-int totalAtkB =
-    atkBucketsB[UnitType.Infantry] +
-    atkBucketsB[UnitType.Vehicle] +
-    atkBucketsB[UnitType.Air] +
-    atkBucketsB[UnitType.Ranged];
+        int totalAtkB =
+            atkBucketsB[UnitType.Infantry] +
+            atkBucketsB[UnitType.Vehicle] +
+            atkBucketsB[UnitType.Air] +
+            atkBucketsB[UnitType.Ranged];
 
-        // Store firepower totals in report for visual playback ordering
-        // (Lower firepower player's units explode first per row)
+        // Store ATK totals in report for playback (winner fires first)
         report.SetFirepower(totalAtkA, totalAtkB);
-
-        // Navy Seal bypass damage (goes directly to commander)
-        ApplyBypassDamage(a, b, report, alsoDebugLog);
-        ApplyBypassDamage(b, a, report, alsoDebugLog);
 
         AddEvent(report, new CombatEvent
         {
             Type = CombatEventType.DebugNote,
-            Note = $"{a.Name} total ATK this combat: {totalAtkA}",
+            Note = $"{a.Name} total ATK: {totalAtkA}",
             SourcePlayer = a,
             Amount = totalAtkA
         }, alsoDebugLog);
@@ -126,104 +116,124 @@ int totalAtkB =
         AddEvent(report, new CombatEvent
         {
             Type = CombatEventType.DebugNote,
-            Note = $"{b.Name} total ATK this combat: {totalAtkB}",
+            Note = $"{b.Name} total ATK: {totalAtkB}",
             SourcePlayer = b,
             Amount = totalAtkB
         }, alsoDebugLog);
 
-        // Check for armor piercing (disables damage reduction)
-        bool aHasArmorPiercing = HasAnyAliveAbility(a, UnitAbilityType.ArmorPiercing);
-        bool bHasArmorPiercing = HasAnyAliveAbility(b, UnitAbilityType.ArmorPiercing);
+        // Navy Seal bypass damage (goes directly to commander)
+        // This still works in the new system
+        ApplyBypassDamage(a, b, report, alsoDebugLog);
+        ApplyBypassDamage(b, a, report, alsoDebugLog);
 
-        // Apply main damage streams (returns counter damage and leftover damage)
-        // leftoverToB = damage that overflowed past all of B's units (from A's attack)
-        // leftoverToA = damage that overflowed past all of A's units (from B's attack)
-        var (counterBackToA, leftoverToB) = ApplyDamageBucketsToEntireArmy(
-            attacker: a,
-            defender: b,
-            buckets: atkBucketsA,
-            report: report,
-            alsoDebugLog: alsoDebugLog,
-            attackerHasArmorPiercing: aHasArmorPiercing,
-            allowCounterattack: true
-        );
+        // PHASE 3: Determine winner and apply commander damage
+        Player winner = null;
+        Player loser = null;
+        int damage = 0;
 
-        var (counterBackToB, leftoverToA) = ApplyDamageBucketsToEntireArmy(
-            attacker: b,
-            defender: a,
-            buckets: atkBucketsB,
-            report: report,
-            alsoDebugLog: alsoDebugLog,
-            attackerHasArmorPiercing: bHasArmorPiercing,
-            allowCounterattack: true
-        );
-
-        // Apply counterattack streams (no further counters to prevent infinite loops)
-        // Counter damage can also overflow to commander
-        if (counterBackToA > 0)
+        if (totalAtkA > totalAtkB)
         {
+            winner = a;
+            loser = b;
+            damage = totalAtkA - totalAtkB;
+
             AddEvent(report, new CombatEvent
             {
-                Type = CombatEventType.CounterattackTriggered,
-                SourcePlayer = b,
-                TargetPlayer = a,
-                Amount = counterBackToA,
-                Note = $"[COUNTER] Total counter damage back to {a.Name}: {counterBackToA}"
-            }, alsoDebugLog);
-
-            var (_, counterLeftoverToA) = ApplyDamageToEntireArmy(
-                attacker: b,
-                defender: a,
-                damage: counterBackToA,
-                report: report,
-                alsoDebugLog: alsoDebugLog,
-                attackerHasArmorPiercing: false,
-                allowCounterattack: false, // Prevent counter-counter loops
-                isCounterDamage: true  // Flag for counterattack visual effects
-            );
-            leftoverToA += counterLeftoverToA;
-        }
-
-        if (counterBackToB > 0)
-        {
-            AddEvent(report, new CombatEvent
-            {
-                Type = CombatEventType.CounterattackTriggered,
+                Type = CombatEventType.RoundWon,
                 SourcePlayer = a,
                 TargetPlayer = b,
-                Amount = counterBackToB,
-                Note = $"[COUNTER] Total counter damage back to {b.Name}: {counterBackToB}"
+                Amount = damage,
+                Note = $"{a.Name} WINS! ATK {totalAtkA} > {totalAtkB}. Deals {damage} commander damage."
             }, alsoDebugLog);
+        }
+        else if (totalAtkB > totalAtkA)
+        {
+            winner = b;
+            loser = a;
+            damage = totalAtkB - totalAtkA;
 
-            var (_, counterLeftoverToB) = ApplyDamageToEntireArmy(
-                attacker: a,
-                defender: b,
-                damage: counterBackToB,
-                report: report,
-                alsoDebugLog: alsoDebugLog,
-                attackerHasArmorPiercing: false,
-                allowCounterattack: false, // Prevent counter-counter loops
-                isCounterDamage: true  // Flag for counterattack visual effects
-            );
-            leftoverToB += counterLeftoverToB;
+            AddEvent(report, new CombatEvent
+            {
+                Type = CombatEventType.RoundWon,
+                SourcePlayer = b,
+                TargetPlayer = a,
+                Amount = damage,
+                Note = $"{b.Name} WINS! ATK {totalAtkB} > {totalAtkA}. Deals {damage} commander damage."
+            }, alsoDebugLog);
+        }
+        else
+        {
+            // Tied - no commander damage
+            AddEvent(report, new CombatEvent
+            {
+                Type = CombatEventType.RoundTied,
+                Note = $"TIED! Both players have ATK={totalAtkA}. No commander damage."
+            }, alsoDebugLog);
         }
 
-        // PHASE 3: Cleanup dead units
+        // Store winner in report for playback (winner fires first)
+        report.SetWinner(winner);
+        report.SetDamageDealt(damage);
+
+        // Apply damage to loser's commander
+        if (loser != null && damage > 0)
+        {
+            // Apply Thick Skin doctrine reduction
+            float thickSkinMult = DoctrineSystem.GetCommanderDamageMultiplier?.Invoke(loser) ?? 1f;
+            if (!Mathf.Approximately(thickSkinMult, 1f))
+            {
+                int beforeThickSkin = damage;
+                damage = Mathf.RoundToInt(damage * thickSkinMult);
+                AddEvent(report, new CombatEvent
+                {
+                    Type = CombatEventType.AbilityTriggered,
+                    TargetPlayer = loser,
+                    Amount = damage,
+                    Note = $"[THICK SKIN] {loser.Name} commander damage reduced: {beforeThickSkin} -> {damage}"
+                }, alsoDebugLog);
+            }
+
+            // Apply Wall defense absorption
+            if (PerkSystem.Instance != null && damage > 0)
+            {
+                int beforeWall = damage;
+                damage = PerkSystem.Instance.ApplyWallDamage(loser, damage);
+                if (damage != beforeWall)
+                {
+                    AddEvent(report, new CombatEvent
+                    {
+                        Type = CombatEventType.AbilityTriggered,
+                        TargetPlayer = loser,
+                        Amount = beforeWall - damage,
+                        Note = $"[WALLS] {loser.Name} wall absorbed {beforeWall - damage} damage, {damage} remaining"
+                    }, alsoDebugLog);
+                }
+            }
+
+            // Apply damage to commander
+            int beforeHP = loser.CommanderHP;
+            loser.TakeDamage(damage);
+
+            AddEvent(report, new CombatEvent
+            {
+                Type = CombatEventType.CommanderDamaged,
+                SourcePlayer = winner,
+                TargetPlayer = loser,
+                Amount = damage,
+                Note = $"{loser.Name} commander takes {damage} damage (HP {beforeHP}->{loser.CommanderHP})"
+            }, alsoDebugLog);
+        }
+
+        // MERCHANT OF DEATH: Spend leftover gold to deal extra commander damage
+        ApplyMerchantOfDeath(a, b, report, alsoDebugLog);
+        ApplyMerchantOfDeath(b, a, report, alsoDebugLog);
+
+        // PHASE 4: Mark all units as dead (except PERSIST on winning/tied side)
+        MarkAllUnitsAsDead(a, b, winner, report, alsoDebugLog);
+
+        // PHASE 5: Move dead units to discard pile
         CleanupDeadUnits(a, report, alsoDebugLog);
         CleanupDeadUnits(b, report, alsoDebugLog);
-
-        // UNIFIED HEALTH SYSTEM: Recalculate max HP based on surviving units
-        // This shrinks the health bar to reflect only living units
-        a.RecalculateCommanderMaxHP();
-        b.RecalculateCommanderMaxHP();
-
-        // PHASE 4: Firepower Resolution
-        // Commander damage is based on leftover damage that overflowed past all enemy units:
-        // - leftoverToB = damage A dealt that overflowed past all of B's units
-        // - leftoverToA = damage B dealt that overflowed past all of A's units
-        // - Only the player with HIGHER leftover deals commander damage
-        // - Commander damage = Winner's leftover - Loser's leftover
-        ResolveFirepowerDamage(a, b, leftoverToB, leftoverToA, report, alsoDebugLog);
 
         // Log combat end
         AddEvent(report, new CombatEvent
@@ -234,17 +244,111 @@ int totalAtkB =
 
         AddEvent(report, new CombatEvent
         {
-            Type = CombatEventType.CombatEnd,
+            Type = CombatEventType.DebugNote,
             Note = $"{a.Name} Commander HP: {a.CommanderHP}"
         }, alsoDebugLog);
 
         AddEvent(report, new CombatEvent
         {
-            Type = CombatEventType.CombatEnd,
+            Type = CombatEventType.DebugNote,
             Note = $"{b.Name} Commander HP: {b.CommanderHP}"
         }, alsoDebugLog);
 
         return report;
+    }
+
+    /// <summary>
+    /// Marks all units as dead, except those with PERSIST ability on the winning or tied side.
+    /// Also handles Counterattack death triggers (1 damage to enemy commander).
+    /// </summary>
+    private static void MarkAllUnitsAsDead(Player a, Player b, Player winner, CombatReport report, bool alsoDebugLog)
+    {
+        bool aWonOrTied = (winner == a || winner == null);
+        bool bWonOrTied = (winner == b || winner == null);
+
+        if (alsoDebugLog)
+        {
+            Debug.Log($"[PERSIST CHECK] Winner: {winner?.Name ?? "TIED"}");
+            Debug.Log($"[PERSIST CHECK] {a.Name} won/tied: {aWonOrTied}, {b.Name} won/tied: {bWonOrTied}");
+        }
+
+        // Pass enemy player so Counterattack can deal damage to them
+        MarkPlayerUnitsAsDead(a, b, aWonOrTied, report, alsoDebugLog);
+        MarkPlayerUnitsAsDead(b, a, bWonOrTied, report, alsoDebugLog);
+    }
+
+    /// <summary>
+    /// Marks all of a player's units as dead.
+    /// Units with PERSIST ability survive if this player won or tied.
+    /// Units with COUNTERATTACK deal 1 damage to enemy commander when destroyed.
+    /// </summary>
+    private static void MarkPlayerUnitsAsDead(Player player, Player enemy, bool playerWonOrTied, CombatReport report, bool alsoDebugLog)
+    {
+        foreach (var rowKvp in player.Rows)
+        {
+            Row row = rowKvp.Value;
+            RowType rowType = rowKvp.Key;
+
+            foreach (var unit in row.Units)
+            {
+                if (unit == null || !unit.IsAlive) continue;
+
+                // PERSIST: Unit always survives combat (stays on field for next round)
+                bool hasPersist = (unit.Ability == UnitAbilityType.Persist);
+                bool survives = hasPersist; // Always survives, regardless of win/lose
+
+                if (alsoDebugLog && hasPersist)
+                {
+                    Debug.Log($"[PERSIST] {player.Name}'s {unit.Name}: hasPersist={hasPersist} => survives={survives}");
+                }
+
+                if (survives)
+                {
+                    AddEvent(report, new CombatEvent
+                    {
+                        Type = CombatEventType.AbilityTriggered,
+                        SourcePlayer = player,
+                        SourceUnit = unit,
+                        Row = rowType,
+                        Note = $"[PERSIST] {player.Name}'s {unit.Name} survives combat!"
+                    }, alsoDebugLog);
+                }
+                else
+                {
+                    // Mark unit as dead
+                    unit.IsAlive = false;
+
+                    AddEvent(report, new CombatEvent
+                    {
+                        Type = CombatEventType.UnitDestroyed,
+                        TargetPlayer = player,
+                        TargetUnit = unit,
+                        Row = rowType,
+                        Note = $"{player.Name}'s {unit.Name} destroyed ({rowType})"
+                              + (unit.IsMarkedTarget ? " [MARKED]" : "")
+                    }, alsoDebugLog);
+
+                    // COUNTERATTACK: When this unit is destroyed, deal 1 damage to enemy commander
+                    if (unit.Ability == UnitAbilityType.Counterattack && enemy != null)
+                    {
+                        int counterDamage = 1;
+                        int beforeHP = enemy.CommanderHP;
+                        enemy.TakeDamage(counterDamage);
+
+                        AddEvent(report, new CombatEvent
+                        {
+                            Type = CombatEventType.AbilityTriggered,
+                            SourcePlayer = player,
+                            SourceUnit = unit,
+                            TargetPlayer = enemy,
+                            Amount = counterDamage,
+                            Row = rowType,
+                            Note = $"[COUNTERATTACK] {player.Name}'s {unit.Name} deals {counterDamage} damage to {enemy.Name} commander on death (HP {beforeHP}->{enemy.CommanderHP})"
+                        }, alsoDebugLog);
+                    }
+                }
+            }
+        }
     }
 
     // ========================================
@@ -545,13 +649,17 @@ private static void AddRowBuckets(
             alsoDebugLog: alsoDebugLog
         );
 
-        // Commander snapshot multiplier (Terra/Aqua etc.)
-        float cmdMult = (CommanderBonus.GetAttackMultiplier != null)
-            ? CommanderBonus.GetAttackMultiplier(owner, u)
-            : 1f;
-
-        if (!Mathf.Approximately(cmdMult, 1f))
-            atk = Mathf.RoundToInt(atk * cmdMult);
+        // Commander conditional ATK bonuses (Seth: roads, Aqua: rain/snow)
+        if (CommanderBonus.Instance != null)
+        {
+            int cmdBonus = CommanderBonus.Instance.GetConditionalATKBonus(owner, u);
+            if (cmdBonus != 0)
+            {
+                atk += cmdBonus;
+                if (alsoDebugLog)
+                    Debug.Log($"[COMMANDER] {u.Name} +{cmdBonus} ATK from conditional bonus (now {atk})");
+            }
+        }
 
         // Perk ATK bonuses (Stopping Power, Piercing, Explosives, Heads Up)
         int perkBonus = (PerkSystem.GetTypeAtkBonus != null)
@@ -741,7 +849,7 @@ total += atk;
 
     /// <summary>
     /// Checks if the enemy has any alive tanks (vehicles).
-    /// Used by RPG ability (DoubleAttackIfEnemyHasTank).
+    /// Used by RPG ability (ArmorPiercing).
     /// </summary>
     private static bool EnemyHasAliveTank(Player enemy)
     {
@@ -837,7 +945,7 @@ total += atk;
     /// - Any remaining damage is tracked for Firepower resolution
     ///
     /// TAUNT:
-    /// - If defender has a TauntRowFirst unit, that row is attacked first
+    /// - If defender has a Taunt unit, that row is attacked first
     ///
     /// RETURNS:
     /// Tuple of (counterattack damage, leftover damage that overflowed past all units)
@@ -867,8 +975,8 @@ total += atk;
         // Default row order: Front → Middle → Back
         List<RowType> rowOrder = new List<RowType> { RowType.Front, RowType.Middle, RowType.Back };
 
-        // TAUNT: If defender has TauntRowFirst, that row is attacked first
-        if (TryGetTauntRowFirst(defender, out RowType tauntRow))
+        // TAUNT: If defender has Taunt, that row is attacked first
+        if (TryGetTaunt(defender, out RowType tauntRow))
         {
             rowOrder.Remove(tauntRow);
             rowOrder.Insert(0, tauntRow);
@@ -1120,7 +1228,7 @@ total += atk;
     /// SIMPLIFIED DAMAGE RESOLUTION
     ///
     /// Previous complex behaviors have been replaced with visible HP changes:
-    /// - ARMORED (ReduceIncomingDamage50Percent): HP is doubled at unit creation
+    /// - ARMORED (Armored): HP is doubled at unit creation
     /// - MARKED (IsMarkedTarget): HP is halved when marked during buy phase
     ///
     /// Now all units take damage using simple 1:1 stream-to-HP ratio.
@@ -1536,13 +1644,13 @@ total += atk;
     }
 
     /// <summary>
-    /// TAUNT (ROW FIRST): Finds which row should be attacked first.
-    /// 
+    /// TAUNT: Finds which row should be attacked first.
+    ///
     /// RULE:
-    /// - If defender has any alive TauntRowFirst unit, that row is attacked first
+    /// - If defender has any alive Taunt unit, that row is attacked first
     /// - If multiple taunters in different rows, lowest InstanceId wins (deterministic)
     /// </summary>
-    private static bool TryGetTauntRowFirst(Player defender, out RowType tauntRow)
+    private static bool TryGetTaunt(Player defender, out RowType tauntRow)
     {
         tauntRow = RowType.Front;
 
@@ -1557,7 +1665,7 @@ total += atk;
             foreach (var u in row.Units)
             {
                 if (!u.IsAlive) continue;
-                if (u.Ability != UnitAbilityType.TauntRowFirst) continue;
+                if (u.Ability != UnitAbilityType.Taunt) continue;
 
                 // Deterministic tiebreaker: lowest InstanceId wins
                 if (best == null || u.InstanceId < best.InstanceId)

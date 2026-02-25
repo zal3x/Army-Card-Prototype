@@ -12,7 +12,7 @@ public enum PerkEffectType
     /// <summary>Extra Lives: +X commander HP per tier</summary>
     CommanderHP,
 
-    /// <summary>Medals: +X ATK/HP to random unit (infinite purchases, no stacking)</summary>
+    /// <summary>Medals: +X ATK to random unit (infinite purchases, no stacking)</summary>
     RandomUnitStatBoost,
 
     /// <summary>Stopping Power/Piercing/Explosives/Heads Up: +X ATK per tier for type</summary>
@@ -95,7 +95,7 @@ public class PerkDefinition : ScriptableObject
         {
             PerkEffectType.WallDefense => $"+{effect} Wall Defense",
             PerkEffectType.CommanderHP => $"+{effect} Commander HP",
-            PerkEffectType.RandomUnitStatBoost => $"+{effectAmountPerTier} ATK/HP to random unit",
+            PerkEffectType.RandomUnitStatBoost => $"+{effectAmountPerTier} ATK to random unit",
             PerkEffectType.TypeAtkBonus => $"+{effect} {targetUnitType} ATK",
             PerkEffectType.GoldPerRound => $"+{effect} Gold per round",
             _ => $"+{effect}"

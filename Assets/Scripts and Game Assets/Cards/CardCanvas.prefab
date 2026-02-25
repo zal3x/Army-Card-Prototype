@@ -122,9 +122,46 @@ MonoBehaviour:
   rankText: {fileID: 4346759506296298120}
   hoverScale: 1.05
   hoverAnimDuration: 0.15
+  hoverDelay: 0.2
   hoverGlow: {fileID: 561211115713906297}
   isSelected: 0
   selectionOutline: {fileID: 0}
+  flightDuration: 0.5
+  scaleDuringFlight: 1
+  flightStartScaleMult: 1
+  flightEndScaleMult: 0.65
+  shrinkStartT: 0.75
+  shrinkCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  arcHeight: 0.3
+  worldCameraOverride: {fileID: 0}
+  flightLayerOverride: {fileID: 0}
+  scaleAtTakeoff: 1
+  scaleAtLanding: 0.6
+  useInternalFlightScaling: 1
+  specialPortraitSize: {x: 111, y: 111}
 --- !u!1 &1222878776379994226
 GameObject:
   m_ObjectHideFlags: 0
@@ -1129,9 +1166,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'PVT
-
-'
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}

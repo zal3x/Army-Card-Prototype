@@ -33,6 +33,6 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 3167252538121618298, guid: d7541f82372af4fc1bd4b993928f833a, type: 3}
   backgroundSprite: {fileID: 3167252538121618298, guid: d7541f82372af4fc1bd4b993928f833a, type: 3}
-  abilityDescription: Reduce HP of enemy infantry by 50% this ROUND; NO KILL. Round
-    down no 1.5 health units
+  abilityDescription: "Minus 1 attack to each unit in infantry row,  persists entire
+    round \n"
   Definition: {fileID: 0}

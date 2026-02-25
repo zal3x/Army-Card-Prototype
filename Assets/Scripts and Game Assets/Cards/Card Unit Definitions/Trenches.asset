@@ -24,7 +24,7 @@ MonoBehaviour:
     Multiplier: 1
     Amount: 0
   isSpecialCard: 1
-  specialType: 9
+  specialType: 10
   hasPreemptive: 0
   preemptiveTargetType: 0
   preemptiveDamage: 0
@@ -33,5 +33,7 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: 1605892796355376851, guid: 0b7841c1d12534e7cb733661c23824c2, type: 3}
-  abilityDescription: All friendly infantry absorb 50% more damage this battle
+  abilityDescription: 'All friendly infantry units gain 1 attack for entire round
+
+'
   Definition: {fileID: 0}

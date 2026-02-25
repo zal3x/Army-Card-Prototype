@@ -26,7 +26,8 @@ public class BattlefieldGridTool : EditorWindow
     private float screenHeight = 1080f;
     private float orthoSize = 5.4f; // Camera orthographic size (half-height in world units)
     private int pixelsPerUnit = 100; // Unity PPU setting
-
+ 
+ 
     [Header("Grid Configuration")]
     private int unitsPerColumn = 5;  // Units stacked vertically in each column
     private int columnCount = 3;     // Infantry, Vehicle, Air

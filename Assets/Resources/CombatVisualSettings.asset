@@ -12,14 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 009e178e85c4943298d95a27a5e8d084, type: 3}
   m_Name: CombatVisualSettings
   m_EditorClassIdentifier: Assembly-CSharp::CombatVisualSettings
-  healthBarTweenDuration: 0.716
+  healthBarTweenDuration: 0.603
   alwaysShowHealthBars: 0
   alwaysShowDamagedHealth: 1
   healthBarVisibilityDuration: 2
   flashHealthBarOnDamage: 1
   healthBarColorFull: {r: 0, g: 0.6415094, b: 0, a: 1}
   healthBarColorLow: {r: 0.509434, g: 0.06488074, b: 0.06488074, a: 1}
-  useUnifiedCommanderHealth: 1
+  useUnifiedCommanderHealth: 0
   commanderExpandAnimDuration: 0.4
   commanderShrinkAnimDuration: 0.3
   commanderBarMinWidth: 200
@@ -32,16 +32,20 @@ MonoBehaviour:
   damageNumberPopScale: 1.894
   enableCriticalHitEffect: 1
   largeHitThreshold: 30
-  combatSpeedMultiplier: 4
+  combatSpeedMultiplier: 1
   defaultEventDelay: 0.072
-  unitDestroyDelay: 0.151
+  unitDestroyDelay: 0.436
   commanderDamageDelay: 0.35
   skipCombatAnimations: 0
   pauseBetweenPhases: 0
   phasePauseDuration: 0.5
   enableOpeningVolley: 1
-  openingVolleyDuration: 2
+  openingVolleyDuration: 3
   continueFiringDuringDamage: 1
+  continuousFiringInterval: 0.4
+  fightingPhaseDuration: 2
+  explosionIntervalDelay: 0.25
+  commanderAssaultDuration: 2
   deathExplosionScale: 3
   deathExplosionDuration: 1
   enableDamageFlash: 1
@@ -83,11 +87,11 @@ MonoBehaviour:
   - {fileID: 5303343649990226612, guid: 4d0fb350e4cfd4b4dbf49a5a0be957e6, type: 3}
   markTargetEffectFPS: 12
   markTargetEffectColor: {r: 1, g: 0.3, b: 0.3, a: 0.9}
-  markTargetEffectScale: 1
+  markTargetEffectScale: 5
   markTargetEffectOffset: {x: 0, y: 0, z: 0}
   markTargetEffectSortingOffset: 10
   markTargetEffectLoops: 0
-  markTargetEffectPlayCount: 1
+  markTargetEffectPlayCount: 3
   markTargetEffectPersists: 1
   enableCounterattackEffect: 1
   counterattackEffectFrames:
@@ -103,15 +107,17 @@ MonoBehaviour:
   - {fileID: -7434089449233384991, guid: a80c33eac2f464a438bc342d1741766c, type: 3}
   - {fileID: -4609361297748724568, guid: ac001fbfaa2f5451fa056cac91e8cc21, type: 3}
   - {fileID: 5303343649990226612, guid: 4d0fb350e4cfd4b4dbf49a5a0be957e6, type: 3}
-  counterattackEffectFPS: 15
+  counterattackEffectFPS: 12
   counterattackEffectColor: {r: 1, g: 0.8, b: 0.2, a: 1}
-  counterattackEffectScale: 3
+  counterattackEffectScale: 5
   counterattackEffectOffset: {x: 0, y: 0, z: 0}
-  counterattackEffectSortingOrder: 3035
+  counterattackEffectSortingLayer: DamageNumbers
+  counterattackEffectSortingOrder: 10000
   useInterleavedExplosions: 1
   rowInterleavingDelay: 0.3
   betweenRowDelay: 0.5
   preExplosionDelay: 0.5
+  projectileFlightBuffer: 1
   enableCommanderFinale: 1
   commanderFiringDuration: 1.5
   postFiringDelay: 0.3

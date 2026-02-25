@@ -15,54 +15,62 @@ MonoBehaviour:
   abilityDisplays:
   - abilityType: 1
     displayText: x2 ATK
-    textColor: {r: 0.3, g: 1, b: 0.3, a: 1}
+    textColor: {r: 1, g: 0, b: 0.1463852, a: 1}
     fontSizeMultiplier: 1.1
   - abilityType: 2
-    displayText: x2 ATK
+    displayText: Unmatched
     textColor: {r: 0.3, g: 1, b: 0.3, a: 1}
     fontSizeMultiplier: 1.1
   - abilityType: 3
-    displayText: x2 ATK
-    textColor: {r: 0.3, g: 1, b: 0.3, a: 1}
+    displayText: +1 ATK
+    textColor: {r: 0, g: 0.26026773, b: 1, a: 1}
     fontSizeMultiplier: 1.1
   - abilityType: 4
-    displayText: Direct Attack
-    textColor: {r: 0.3, g: 1, b: 0.3, a: 1}
+    displayText: SOS
+    textColor: {r: 0.04431629, g: 1, b: 0, a: 1}
     fontSizeMultiplier: 1.1
   - abilityType: 5
-    displayText: Double Health
+    displayText: My Brother
     textColor: {r: 0.745283, g: 0, b: 0.09280749, a: 1}
     fontSizeMultiplier: 1.1
   - abilityType: 6
-    displayText: Armor Piercer
-    textColor: {r: 0, g: 1, b: 0.9400835, a: 1}
+    displayText: Commander Damage
+    textColor: {r: 0.3, g: 1, b: 0.3, a: 1}
     fontSizeMultiplier: 1.1
   - abilityType: 7
-    displayText: Counter
-    textColor: {r: 1, g: 0, b: 0.90136623, a: 1}
+    displayText: Countered
+    textColor: {r: 0, g: 1, b: 0.9400835, a: 1}
     fontSizeMultiplier: 1.1
   - abilityType: 8
-    displayText: MONEY MONEY
-    textColor: {r: 1, g: 0.9618751, b: 0, a: 1}
-    fontSizeMultiplier: 1.1
-  - abilityType: 9
-    displayText: REINFORCEMENTS
+    displayText: Armored
     textColor: {r: 0, g: 0, b: 0, a: 1}
     fontSizeMultiplier: 1.1
   - abilityType: 10
-    displayText: BYE BYE
-    textColor: {r: 1, g: 0.34837234, b: 0, a: 1}
+    displayText: MONEY MONEY
+    textColor: {r: 1, g: 0.98463297, b: 0, a: 1}
     fontSizeMultiplier: 1.1
   - abilityType: 11
-    displayText: NA NA NA NA NA
-    textColor: {r: 0.04431629, g: 1, b: 0, a: 1}
+    displayText: REINFORCEMENTS
+    textColor: {r: 0, g: 0, b: 0, a: 1}
     fontSizeMultiplier: 1.1
   - abilityType: 12
-    displayText: TARGET MARKED
+    displayText: TANK HATE
     textColor: {r: 1, g: 0, b: 0.018100739, a: 1}
     fontSizeMultiplier: 1.1
   - abilityType: 13
-    displayText: Commander Bonus
+    displayText: NA NA NA NA NA
+    textColor: {r: 1, g: 0, b: 0.6192255, a: 1}
+    fontSizeMultiplier: 1.1
+  - abilityType: 14
+    displayText: BYE BYE
+    textColor: {r: 1, g: 0.34837234, b: 0, a: 1}
+    fontSizeMultiplier: 1.1
+  - abilityType: 15
+    displayText: Persistence
+    textColor: {r: 0, g: 0, b: 0, a: 1}
+    fontSizeMultiplier: 1.1
+  - abilityType: 0
+    displayText: Persistence
     textColor: {r: 0, g: 0, b: 0, a: 1}
     fontSizeMultiplier: 1.1
   defaultDisplayText: ABILITY

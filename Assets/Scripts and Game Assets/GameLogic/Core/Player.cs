@@ -60,12 +60,40 @@ public RowType AirRow = RowType.Back;
     }
 
     // ========================================
-    // UNIFIED HEALTH SYSTEM HELPERS
+    // NEW COMBAT SYSTEM: Simple Commander HP
     // ========================================
 
     /// <summary>
-    /// Calculates total HP contribution from all alive units.
+    /// Apply damage directly to the commander.
+    /// Used in new combat system where damage = ATK difference.
     /// </summary>
+    public void TakeDamage(int amount)
+    {
+        CommanderHP = UnityEngine.Mathf.Max(0, CommanderHP - amount);
+    }
+
+    /// <summary>
+    /// Check if commander is dead (HP <= 0).
+    /// </summary>
+    public bool IsCommanderDead => CommanderHP <= 0;
+
+    /// <summary>
+    /// Initialize commander HP at battle start.
+    /// In new system, MaxHP equals BaseHP (no unit HP expansion).
+    /// </summary>
+    public void InitializeCommanderHP(int baseHP)
+    {
+        CommanderBaseHP = baseHP;
+        CommanderHP = baseHP;
+        CommanderMaxHP = baseHP;
+    }
+
+    // ========================================
+    // DEPRECATED: Unified Health System
+    // These methods are no longer used but kept for compatibility.
+    // ========================================
+
+    [System.Obsolete("Not used in new combat system - units no longer have HP")]
     public int TotalUnitHP
     {
         get
@@ -83,19 +111,13 @@ public RowType AirRow = RowType.Back;
         }
     }
 
-    /// <summary>
-    /// Recalculates CommanderMaxHP based on surviving units.
-    /// Call this after units are added or removed.
-    /// </summary>
+    [System.Obsolete("Not used in new combat system")]
     public void RecalculateCommanderMaxHP()
     {
         CommanderMaxHP = CommanderBaseHP + TotalUnitHP;
     }
 
-    /// <summary>
-    /// Initializes the unified health system at battle start.
-    /// Sets base HP and syncs max HP with current units.
-    /// </summary>
+    [System.Obsolete("Use InitializeCommanderHP instead")]
     public void InitializeUnifiedHealth(int baseHP)
     {
         CommanderBaseHP = baseHP;
@@ -103,31 +125,21 @@ public RowType AirRow = RowType.Back;
         RecalculateCommanderMaxHP();
     }
 
-    /// <summary>
-    /// Called when a unit is deployed. Expands the health pool.
-    /// </summary>
+    [System.Obsolete("Not used in new combat system - units no longer expand health pool")]
     public void OnUnitDeployed(Unit unit)
     {
         if (unit == null) return;
-
-        // Expand both current and max HP by unit's HP
         CommanderHP += unit.MaxHP;
         CommanderMaxHP += unit.MaxHP;
     }
 
-    /// <summary>
-    /// Called when a unit takes damage. Syncs damage to commander.
-    /// </summary>
+    [System.Obsolete("Not used in new combat system")]
     public void OnUnitDamaged(int damageAmount)
     {
         CommanderHP -= damageAmount;
     }
 
-    /// <summary>
-    /// Called when a unit's MaxHP is reduced (e.g., marked).
-    /// Shrinks the health pool by reducing both HP and MaxHP.
-    /// This is different from damage - it reduces the total capacity.
-    /// </summary>
+    [System.Obsolete("Not used in new combat system")]
     public void OnUnitMaxHPReduced(int amountReduced)
     {
         CommanderHP -= amountReduced;

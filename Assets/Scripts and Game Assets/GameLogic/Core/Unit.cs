@@ -14,12 +14,26 @@ public class Unit
 
     public string Name;
     public UnitType Type;
+
+    // DEPRECATED: Unit HP is no longer used in the new combat system.
+    // Combat is now based on total ATK comparison, not unit HP streaming.
+    // Keeping these fields temporarily for compatibility.
+    [System.Obsolete("Unit HP not used in new combat system")]
     public int HP;
-    public int MaxHP; // what "full health" means (initial HP)
+    [System.Obsolete("Unit MaxHP not used in new combat system")]
+    public int MaxHP;
+
     public UnitAbilityType Ability = UnitAbilityType.None; // copied from UnitCard
     public int ATK;
 
-    public bool IsAlive => HP > 0;
+    // Changed from computed property (HP > 0) to settable flag.
+    // In new system, units are marked dead after combat (IsAlive = false).
+    private bool _isAlive = true;
+    public bool IsAlive
+    {
+        get => _isAlive;
+        set => _isAlive = value;
+    }
 
     // Optional: unit can have a pre-emptive strike ability
     public PreemptiveStrikeData PreemptiveStrike;

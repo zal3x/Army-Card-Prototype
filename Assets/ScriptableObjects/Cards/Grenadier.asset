@@ -15,7 +15,7 @@ MonoBehaviour:
   cardName: Grenadier
   type: 0
   cost: 3
-  hp: 9
+  hp: 0
   atk: 3
   rarity: 0
   ability: 6

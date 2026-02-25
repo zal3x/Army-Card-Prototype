@@ -45,5 +45,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DamageNumberSpawner
   damageNumberPrefab: {fileID: 0}
+  abilityDisplaySettings: {fileID: 0}
   spawnHeightOffset: 1
   enableDamageNumbers: 1

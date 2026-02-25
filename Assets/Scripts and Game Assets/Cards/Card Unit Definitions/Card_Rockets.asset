@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
   cardName: Rockets
   type: 3
-  cost: 6
-  hp: 27
-  atk: 17
+  cost: 7
+  hp: 0
+  atk: 12
   rarity: 0
   ability: 2
   countsAsVehicle: 1

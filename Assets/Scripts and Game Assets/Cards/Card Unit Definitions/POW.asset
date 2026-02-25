@@ -24,7 +24,7 @@ MonoBehaviour:
     Multiplier: 1
     Amount: 0
   isSpecialCard: 1
-  specialType: 6
+  specialType: 7
   hasPreemptive: 0
   preemptiveTargetType: 0
   preemptiveDamage: 0
@@ -33,5 +33,5 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: -8082514273087960088, guid: c77b35483eb5a4cb8a3a0ecd0a28ec9f, type: 3}
-  abilityDescription: "Capture a random card from opponent\u2019s hand"
+  abilityDescription: Take a unit from enemy discard pile and add to hand.
   Definition: {fileID: 0}

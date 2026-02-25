@@ -24,7 +24,7 @@ MonoBehaviour:
     Multiplier: 1
     Amount: 0
   isSpecialCard: 1
-  specialType: 14
+  specialType: 15
   hasPreemptive: 0
   preemptiveTargetType: 0
   preemptiveDamage: 0
@@ -33,5 +33,5 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: -989085045499774128, guid: 5a90930534d8947c6b1e87c32d65c04a, type: 3}
-  abilityDescription: 'infantry row recovers 50% HP '
+  abilityDescription: "adds 3 commander health\n "
   Definition: {fileID: 0}

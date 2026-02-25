@@ -24,7 +24,7 @@ MonoBehaviour:
     Multiplier: 1
     Amount: 0
   isSpecialCard: 1
-  specialType: 2
+  specialType: 3
   hasPreemptive: 0
   preemptiveTargetType: 0
   preemptiveDamage: 0

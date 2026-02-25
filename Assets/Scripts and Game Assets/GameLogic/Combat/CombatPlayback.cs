@@ -3,9 +3,17 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Plays back a CombatReport's events in order using a coroutine.
-/// Right now it just logs and waits; later youâ€™ll swap the log calls
-/// for animations, VFX, UI updates, etc.
+/// Plays back a CombatReport's events visually using coroutines.
+///
+/// NEW COMBAT VISUAL FLOW (Feb 2026):
+/// 1. Winner fires opening volley FIRST (higher total ATK)
+/// 2. Loser fires back (brief delay)
+/// 3. Brief pause
+/// 4. Random explosions begin - loser's units start slightly earlier
+/// 5. Synchronized finale - last 2 units explode together
+/// 6. Commander damage display
+///
+/// All units explode/die (except those with PERSIST ability who won/tied).
 /// </summary>
 public class CombatPlayback : MonoBehaviour
 {   [Header("References")]
@@ -44,6 +52,7 @@ private Coroutine continuousFiringRoutine;  // Background firing coroutine
 // Order: Weaker Infantry → Stronger Infantry → Weaker Vehicle → etc.
 private List<CombatEvent> allDeathEvents = new List<CombatEvent>();
 private List<CombatEvent> commanderDamageEvents = new List<CombatEvent>();
+private List<CombatEvent> abilityTriggeredEvents = new List<CombatEvent>();
 private bool explosionsPhaseStarted = false;
 private int cachedFirepowerA = 0;
 private int cachedFirepowerB = 0;
@@ -133,12 +142,8 @@ if (logEvents)
             playbackRoutine = null;
         }
 
-        // Also stop continuous firing if running
-        if (continuousFiringRoutine != null)
-        {
-            StopCoroutine(continuousFiringRoutine);
-            continuousFiringRoutine = null;
-        }
+        // Always stop continuous firing
+        StopContinuousFiring();
 
         // Clean up any lingering VFX objects
         UnitAttackEffects.CleanupAllVfx();
@@ -149,10 +154,11 @@ if (logEvents)
         // Reset interleaved explosion system state
         allDeathEvents.Clear();
         commanderDamageEvents.Clear();
+        abilityTriggeredEvents.Clear();
         explosionsPhaseStarted = false;
         cachedFirepowerA = 0;
         cachedFirepowerB = 0;
-
+ 
         // Reset immediate row explosion tracking
         startingCountsA.Clear();
         startingCountsB.Clear();
@@ -176,6 +182,458 @@ if (logEvents)
     }
 
     private IEnumerator PlayRoutine(CombatReport report)
+    {
+        var settings = CombatVisualSettings.Instance;
+
+        // Pause idle animations during combat for cleaner visuals
+        PauseAllIdleAnimations();
+
+        // Determine winner/loser for visual ordering (NEW COMBAT SYSTEM)
+        Player winner = report.Winner;
+        Player loser = (winner == playerA) ? playerB : (winner == playerB) ? playerA : null;
+
+        // Collect all death events and commander damage events
+        allDeathEvents.Clear();
+        commanderDamageEvents.Clear();
+        abilityTriggeredEvents.Clear();
+        foreach (var evt in report.Events)
+        {
+            if (evt.Type == CombatEventType.UnitDestroyed)
+                allDeathEvents.Add(evt);
+            else if (evt.Type == CombatEventType.CommanderDamaged)
+                commanderDamageEvents.Add(evt);
+            else if (evt.Type == CombatEventType.AbilityTriggered)
+                abilityTriggeredEvents.Add(evt);
+        }
+
+        if (logEvents)
+        {
+            Debug.Log($"[NEW COMBAT VISUAL] Winner: {winner?.Name ?? "TIE"}, Deaths: {allDeathEvents.Count}, CmdDmg: {commanderDamageEvents.Count}");
+        }
+
+        // Apply visual effects for unit abilities at combat start (conditions checked per ability)
+        ApplyAbilityEffectsForPlayer(playerA, playerB);
+        ApplyAbilityEffectsForPlayer(playerB, playerA);
+
+        // ============================================
+        // START CONTINUOUS FIRING IMMEDIATELY
+        // Units fire throughout combat until they explode
+        // ============================================
+        if (settings != null && settings.continueFiringDuringDamage)
+        {
+            Debug.Log("[CONTINUOUS FIRE] Starting combat firing...");
+            continuousFiringRoutine = StartCoroutine(ContinuousFiringRoutine());
+        }
+
+        // Fighting phase: units fire before explosions begin (configurable duration)
+        float fightingDuration = settings != null ? settings.ApplySpeedMultiplier(settings.fightingPhaseDuration) : 0.5f;
+        yield return new WaitForSeconds(fightingDuration);
+
+        // ============================================
+        // RANDOM EXPLOSIONS
+        // Loser's units start exploding slightly earlier
+        // ============================================
+        Debug.Log($"[EXPLOSIONS] Starting random explosions - {allDeathEvents.Count} deaths");
+        yield return StartCoroutine(PlayRandomExplosions(loser, winner));
+
+        // ============================================
+        // ALWAYS STOP CONTINUOUS FIRING AT END OF COMBAT
+        // This ensures PERSIST units don't keep firing forever
+        // ============================================
+        StopContinuousFiring();
+
+        // ============================================
+        // PHASE 3b: ABILITY TRIGGERED EVENTS
+        // (e.g. Counterattack dealing commander damage on unit death)
+        // ============================================
+        foreach (var abilityEvt in abilityTriggeredEvents)
+        {
+            HandleEvent(abilityEvt);
+            yield return null; // one frame gap between ability events
+        }
+
+        // ============================================
+        // PHASE 4: COMMANDER DAMAGE DISPLAY
+        // ============================================
+        if (commanderDamageEvents.Count > 0)
+        {
+            Debug.Log("[COMMANDER DAMAGE] Showing damage numbers");
+
+            foreach (var dmgEvent in commanderDamageEvents)
+            {
+                if (dmgEvent.TargetPlayer != null && dmgEvent.Amount > 0)
+                {
+                    Vector3 cmdPos = (dmgEvent.TargetPlayer == playerA)
+                        ? (battleHUD?.GetCommanderAPosition() ?? Vector3.zero)
+                        : (battleHUD?.GetCommanderBPosition() ?? Vector3.zero);
+
+                    if (cmdPos != Vector3.zero)
+                    {
+                        DamageNumberSpawner.Spawn(dmgEvent.Amount, cmdPos, DamageNumberType.CommanderDamage);
+                    }
+
+                    // Camera shake
+                    if (CameraShake.Instance != null)
+                    {
+                        CameraShake.Instance.Shake(0.8f, 0.3f);
+                    }
+
+                    // Sound
+                    if (AudioManager.Instance != null)
+                    {
+                        AudioManager.Instance.PlayCommanderDamage();
+                    }
+                }
+            }
+
+            // Update commander HP display
+            if (battleHUD != null)
+            {
+                battleHUD.UpdateBothCommanders(playerA, playerB);
+            }
+        }
+
+        // Wait for any in-flight projectiles to reach their targets before cleaning up
+        float flightBuffer = settings != null ? settings.ApplySpeedMultiplier(settings.projectileFlightBuffer) : 1.0f;
+        if (flightBuffer > 0f)
+            yield return new WaitForSeconds(flightBuffer);
+
+        // Clean up any lingering VFX objects
+        UnitAttackEffects.CleanupAllVfx();
+
+        // Resume idle animations on surviving units
+        ResumeAllIdleAnimations();
+
+        // Final safety: ensure firing is stopped (in case of early exit or PERSIST units)
+        StopContinuousFiring();
+
+        // Clear all unit visual effects now that combat is over
+        UnitEffectManager.ClearAllEffects();
+
+        if (logEvents)
+            Debug.Log("[PLAYBACK] Finished playback.");
+        playbackRoutine = null;
+    }
+
+    private void ApplyAbilityEffectsForPlayer(Player player, Player enemy)
+    {
+        if (player == null) return;
+
+        foreach (var rowKvp in player.Rows)
+        {
+            RowType rowType = rowKvp.Key;
+            var row = rowKvp.Value;
+
+            // Build alive-count-by-name for this row (needed by ThreeOfAKind etc.)
+            var aliveCountByName = new Dictionary<string, int>();
+            foreach (var u in row.Units)
+            {
+                if (u == null || !u.IsAlive) continue;
+                if (!aliveCountByName.ContainsKey(u.Name))
+                    aliveCountByName[u.Name] = 0;
+                aliveCountByName[u.Name]++;
+            }
+
+            foreach (var unit in row.Units)
+            {
+                if (unit == null || !unit.IsAlive || unit.Ability == UnitAbilityType.None)
+                    continue;
+
+                if (IsConditionalAbility(unit.Ability))
+                {
+                    // Only show effect when the ability condition is actually met
+                    AbilitySystem.GetEffectiveAttackForBuyPhase(
+                        unit, player, enemy, rowType, aliveCountByName,
+                        out AbilityActivationInfo activation);
+
+                    if (activation.AbilityActivated)
+                    {
+                        Debug.Log($"[UnitEffect] CONDITIONAL '{unit.Ability}' ACTIVATED on {player.Name}'s {unit.Name} (id={unit.InstanceId}). Reason: {activation.Reason}");
+                        UnitEffectManager.ApplyEffect(unit.Ability.ToString(), unit.InstanceId);
+                    }
+                    else
+                    {
+                        Debug.Log($"[UnitEffect] CONDITIONAL '{unit.Ability}' NOT met for {player.Name}'s {unit.Name} (id={unit.InstanceId}) - no effect shown.");
+                    }
+                }
+                else if (IsAlwaysOnAbility(unit.Ability))
+                {
+                    // Persist, Counterattack, Armored, DirectAttack - always visible
+                    Debug.Log($"[UnitEffect] ALWAYS-ON '{unit.Ability}' applied to {player.Name}'s {unit.Name} (id={unit.InstanceId}).");
+                    UnitEffectManager.ApplyEffect(unit.Ability.ToString(), unit.InstanceId);
+                }
+                else
+                {
+                    // On-play abilities (MrMoneybags, Duplicate, TargetMark, Taunt, etc.) skip - already fired at buy time
+                    Debug.Log($"[UnitEffect] SKIPPING on-play ability '{unit.Ability}' on {player.Name}'s {unit.Name} - not a combat-phase effect.");
+                }
+            }
+        }
+    }
+
+    private static bool IsConditionalAbility(UnitAbilityType ability)
+    {
+        switch (ability)
+        {
+            case UnitAbilityType.ThreeOfAKind:
+            case UnitAbilityType.Unmatched:
+            case UnitAbilityType.ArmorPiercing:
+            case UnitAbilityType.SOS:
+            case UnitAbilityType.BrotherInArms:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static bool IsAlwaysOnAbility(UnitAbilityType ability)
+    {
+        switch (ability)
+        {
+            case UnitAbilityType.Persist:
+            case UnitAbilityType.Counterattack:
+            case UnitAbilityType.Armored:
+            case UnitAbilityType.DirectAttack:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Plays random explosions with loser starting slightly earlier.
+    /// Last 2 units explode together for synchronized finale.
+    /// </summary>
+    private IEnumerator PlayRandomExplosions(Player loser, Player winner)
+    {
+        if (allDeathEvents.Count == 0) yield break;
+
+        var settings = CombatVisualSettings.Instance;
+        float explosionDuration = settings != null ? settings.deathExplosionDuration : 0.5f;
+
+        // Separate deaths by player
+        var loserDeaths = new List<CombatEvent>();
+        var winnerDeaths = new List<CombatEvent>();
+
+        foreach (var e in allDeathEvents)
+        {
+            if (e.TargetPlayer == loser)
+                loserDeaths.Add(e);
+            else if (e.TargetPlayer == winner)
+                winnerDeaths.Add(e);
+            else if (loser == null)
+            {
+                // Tie - split evenly
+                if (e.TargetPlayer == playerA)
+                    loserDeaths.Add(e);
+                else
+                    winnerDeaths.Add(e);
+            }
+        }
+
+        // Shuffle both lists for randomness
+        ShuffleList(loserDeaths);
+        ShuffleList(winnerDeaths);
+
+        if (logEvents)
+            Debug.Log($"[EXPLOSIONS] Loser deaths: {loserDeaths.Count}, Winner deaths: {winnerDeaths.Count}");
+
+        // Reserve last unit from each side for synchronized finale (if available)
+        CombatEvent lastLoserDeath = loserDeaths.Count > 0 ? loserDeaths[loserDeaths.Count - 1] : null;
+        CombatEvent lastWinnerDeath = winnerDeaths.Count > 0 ? winnerDeaths[winnerDeaths.Count - 1] : null;
+
+        if (lastLoserDeath != null) loserDeaths.RemoveAt(loserDeaths.Count - 1);
+        if (lastWinnerDeath != null) winnerDeaths.RemoveAt(winnerDeaths.Count - 1);
+
+        // Loser gets a head start (0.3s)
+        float loserTime = 0f;
+        float winnerTime = 0.3f;
+
+        int loserIndex = 0;
+        int winnerIndex = 0;
+
+        // Interleave explosions randomly
+        while (loserIndex < loserDeaths.Count || winnerIndex < winnerDeaths.Count)
+        {
+            // Decide which side explodes next based on accumulated time
+            bool pickLoser = (loserTime <= winnerTime && loserIndex < loserDeaths.Count) ||
+                             (winnerIndex >= winnerDeaths.Count);
+
+            if (pickLoser && loserIndex < loserDeaths.Count)
+            {
+                var e = loserDeaths[loserIndex++];
+                yield return StartCoroutine(ExplodeAfterMarkAnimation(e));
+                loserTime += Random.Range(0.1f, 0.25f);
+            }
+            else if (winnerIndex < winnerDeaths.Count)
+            {
+                var e = winnerDeaths[winnerIndex++];
+                yield return StartCoroutine(ExplodeAfterMarkAnimation(e));
+                winnerTime += Random.Range(0.1f, 0.25f);
+            }
+
+            yield return new WaitForSeconds(settings != null ? settings.ApplySpeedMultiplier(settings.explosionIntervalDelay) : 0.15f);
+        }
+
+        // Brief pause before finale
+        yield return new WaitForSeconds(0.2f);
+
+        // FINALE: Commander assault (if there's commander damage and a clear winner),
+        // otherwise synchronized explosion of last 2 units
+        bool hasCommanderDamage = commanderDamageEvents.Count > 0;
+        bool hasClearWinner = winner != null && loser != null;
+
+        if (hasCommanderDamage && hasClearWinner && (lastWinnerDeath != null || lastLoserDeath != null))
+        {
+            Debug.Log("[COMMANDER ASSAULT] Starting assault finale!");
+            yield return StartCoroutine(PlayCommanderAssaultFinale(lastWinnerDeath, lastLoserDeath, winner, loser));
+        }
+        else
+        {
+            // No commander damage or tie - synchronized explosion
+            Debug.Log("[EXPLOSIONS] Synchronized finale!");
+            if (lastLoserDeath != null) yield return StartCoroutine(ExplodeAfterMarkAnimation(lastLoserDeath));
+            if (lastWinnerDeath != null) yield return StartCoroutine(ExplodeAfterMarkAnimation(lastWinnerDeath));
+            yield return new WaitForSeconds(explosionDuration);
+        }
+    }
+
+    /// <summary>
+    /// Commander assault finale: last winning unit fires at enemy commander while last losing unit
+    /// fires back at it (last stand). Then all remaining units explode simultaneously.
+    /// </summary>
+    private IEnumerator PlayCommanderAssaultFinale(CombatEvent winnerUnitDeath, CombatEvent loserUnitDeath, Player winner, Player loser)
+    {
+        var settings = CombatVisualSettings.Instance;
+        float duration = settings != null ? settings.ApplySpeedMultiplier(settings.commanderAssaultDuration) : 1.5f;
+        float fireInterval = settings != null ? settings.ApplySpeedMultiplier(settings.continuousFiringInterval) : 0.4f;
+        float explosionDuration = settings != null ? settings.deathExplosionDuration : 0.5f;
+
+        // NOTE: We intentionally keep continuous firing running here.
+        // PERSIST units still have visuals and will keep firing via ContinuousFiringRoutine.
+        // The assault loop adds targeted shots for the reserved winner/loser units on top.
+        // Firing is stopped at the end of PlayRoutine after commander damage is shown.
+
+        // Get commander position of the loser (who takes the damage)
+        Vector3 loserCommanderPos = (loser == playerA)
+            ? (battleHUD?.GetCommanderAPosition() ?? Vector3.zero)
+            : (battleHUD?.GetCommanderBPosition() ?? Vector3.zero);
+
+        int winnerUnitId = winnerUnitDeath?.TargetUnit?.InstanceId ?? -1;
+        int loserUnitId = loserUnitDeath?.TargetUnit?.InstanceId ?? -1;
+
+        Debug.Log($"[COMMANDER ASSAULT] {winner.Name}'s last unit ({winnerUnitDeath?.TargetUnit?.Name}) fires at {loser.Name}'s commander for {duration}s");
+        if (loserUnitDeath != null)
+            Debug.Log($"[COMMANDER ASSAULT] {loser.Name}'s last unit ({loserUnitDeath.TargetUnit?.Name}) fires back!");
+
+        // Assault loop: winner fires at commander, loser fires at winner
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            // Winner's last unit fires at enemy commander
+            if (winnerUnitId >= 0 && loserCommanderPos != Vector3.zero)
+                fieldSpawner.PlayUnitAttackEffectsAtPosition(winnerUnitId, loserCommanderPos);
+
+            // Loser's last unit fires at winner's last unit (last stand)
+            if (loserUnitId >= 0 && winnerUnitId >= 0)
+                fieldSpawner.PlayUnitAttackEffects(loserUnitId, winnerUnitId);
+
+            yield return new WaitForSeconds(fireInterval);
+            elapsed += fireInterval;
+        }
+
+        // Camera shake before the simultaneous final explosion
+        if (CameraShake.Instance != null)
+            CameraShake.Instance.Shake(0.8f, 0.4f);
+
+        // All remaining reserved units explode simultaneously
+        Debug.Log("[COMMANDER ASSAULT] Simultaneous final explosion!");
+        if (loserUnitDeath != null) yield return StartCoroutine(ExplodeAfterMarkAnimation(loserUnitDeath));
+        if (winnerUnitDeath != null) yield return StartCoroutine(ExplodeAfterMarkAnimation(winnerUnitDeath));
+
+        yield return new WaitForSeconds(explosionDuration);
+    }
+
+    /// <summary>
+    /// For units marked by MarkTarget: plays the mark animation first, then explodes.
+    /// For all other units: explodes immediately (same as ExplodeUnitImmediate).
+    /// </summary>
+    private IEnumerator ExplodeAfterMarkAnimation(CombatEvent e)
+    {
+        // Check the event note — IsMarkedTarget gets cleared during cleanup before playback runs
+        bool isMarked = e.Note != null && e.Note.Contains("[MARKED]");
+
+        if (e.TargetUnit != null && isMarked)
+        {
+            var settings = CombatVisualSettings.Instance;
+            if (settings != null && settings.enableMarkTargetEffect &&
+                settings.markTargetEffectFrames != null && settings.markTargetEffectFrames.Length > 0)
+            {
+                GameObject unitVisual = fieldSpawner?.GetUnitVisual(e.TargetUnit.InstanceId);
+                if (unitVisual != null)
+                {
+                    // Destroy any existing persistent mark indicator before playing the death animation
+                    var existing = unitVisual.GetComponentInChildren<MarkTargetEffect>();
+                    if (existing != null) Destroy(existing.gameObject);
+
+                    // Spawn fresh mark animation (plays once, destroys itself)
+                    var effect = MarkTargetEffect.SpawnOnUnit(unitVisual);
+
+                    // Wait for the animation to complete before exploding
+                    float animDuration = (float)settings.markTargetEffectFrames.Length / settings.markTargetEffectFPS;
+                    yield return new WaitForSeconds(settings.ApplySpeedMultiplier(animDuration));
+                }
+            }
+        }
+
+        ExplodeUnitImmediate(e);
+    }
+
+    /// <summary>
+    /// Immediately explodes a unit (triggers VFX and destroys visual).
+    /// </summary>
+    private void ExplodeUnitImmediate(CombatEvent e)
+    {
+        if (e.TargetUnit == null) return;
+
+        int unitId = e.TargetUnit.InstanceId;
+
+        // Check if already exploded
+        if (explodedUnitIds.Contains(unitId)) return;
+        explodedUnitIds.Add(unitId);
+
+        // Spawn explosion VFX
+        if (CombatVFXSpawner.Instance != null)
+        {
+            CombatVFXSpawner.Instance.SpawnDeathExplosionForUnit(unitId);
+        }
+
+        // Destroy the unit visual
+        if (fieldSpawner != null)
+        {
+            fieldSpawner.DestroyUnitVisual(unitId);
+        }
+
+        if (logEvents)
+            Debug.Log($"[EXPLOSION] {e.TargetPlayer?.Name}'s {e.TargetUnit.Name} exploded");
+    }
+
+    /// <summary>
+    /// Shuffles a list in place using Fisher-Yates algorithm.
+    /// </summary>
+    private void ShuffleList<T>(List<T> list)
+    {
+        for (int i = list.Count - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            T temp = list[i];
+            list[i] = list[j];
+            list[j] = temp;
+        }
+    }
+
+    // LEGACY: Old interleaved explosion code (kept for reference)
+    private IEnumerator PlayRoutine_Legacy(CombatReport report)
     {
         openingVolleyPlayed = false;  // Reset for each combat
 
@@ -432,12 +890,6 @@ if (logEvents)
                 // Trigger damage visual effects (flash, shake, camera shake)
                 fieldSpawner.PlayUnitDamageEffects(e.TargetUnit.InstanceId, e.Amount);
 
-                // COUNTERATTACK EFFECT: Spawn sprite animation on unit receiving counter damage
-                if (e.IsCounterDamage)
-                {
-                    SpawnCounterattackEffect(e.TargetUnit.InstanceId);
-                }
-
                 // UNIFIED HEALTH SYSTEM: Update commander HP display
                 // With interleaved explosions, commander HP only updates during finale
                 var damageSettings = CombatVisualSettings.Instance;
@@ -483,7 +935,7 @@ if (logEvents)
                     suffix = "!";
                 }
                 // ARMORED TANK: Blue
-                else if (e.TargetUnit.Ability == UnitAbilityType.ReduceIncomingDamage50Percent)
+                else if (e.TargetUnit.Ability == UnitAbilityType.Armored)
                 {
                     Debug.Log($"[DEBUG] ARMOR DETECTED! Spawning blue number");
                     damageType = DamageNumberType.ArmorReduced;
@@ -641,11 +1093,28 @@ if (logEvents)
                     }
                 }
 
-                // COUNTERATTACK: Purple "COUNTER X!"
-                if (e.Note != null && e.Note.Contains("[COUNTER]"))
+                // COUNTERATTACK: Purple "COUNTER X!" + sprite animation over enemy commander
+                if (e.Note != null && e.Note.Contains("[COUNTERATTACK]"))
                 {
                     Debug.Log($"[DEBUG] COUNTER detected! Amount={e.Amount}");
                     DamageNumberSpawner.Spawn(e.Amount, pos, DamageNumberType.Counterattack, "COUNTER", "!");
+
+                    // Spawn counterattack sprite animation over the enemy commander portrait.
+                    if (e.TargetPlayer != null && battleHUD != null)
+                    {
+                        Vector3 portraitPos = battleHUD.GetCommanderPortraitPosition(e.TargetPlayer, playerA, playerB);
+
+                        if (portraitPos == Vector3.zero)
+                        {
+                            // Fallback to panel center if portrait lookup failed
+                            portraitPos = (e.TargetPlayer == playerA)
+                                ? battleHUD.GetCommanderAPosition()
+                                : battleHUD.GetCommanderBPosition();
+                        }
+
+                        if (portraitPos != Vector3.zero)
+                            CounterattackEffect.SpawnAtPosition(portraitPos);
+                    }
 
                     // Play counterattack sound
                     if (AudioManager.Instance != null)
@@ -786,40 +1255,6 @@ private Vector3 GetCommanderPosition(Player player)
     }
 
     /// <summary>
-    /// Spawns a counterattack visual effect on the unit receiving counter damage.
-    /// Uses CounterattackEffect component with settings from CombatVisualSettings.
-    /// </summary>
-    private void SpawnCounterattackEffect(int targetUnitId)
-    {
-        if (fieldSpawner == null) return;
-
-        var settings = CombatVisualSettings.Instance;
-        if (settings == null || !settings.enableCounterattackEffect) return;
-
-        // Get the unit's visual GameObject
-        GameObject unitVisual = fieldSpawner.GetUnitVisual(targetUnitId);
-        if (unitVisual == null)
-        {
-            // Fallback: try to spawn at position
-            Vector3 pos = fieldSpawner.GetUnitPosition(targetUnitId);
-            if (pos != Vector3.zero)
-            {
-                CounterattackEffect.SpawnAtPosition(pos);
-                Debug.Log($"[CounterattackEffect] Spawned at position for unit {targetUnitId}");
-            }
-            return;
-        }
-
-        // Spawn the effect on the unit
-        CounterattackEffect effect = CounterattackEffect.SpawnOnUnit(unitVisual);
-
-        if (effect != null && logEvents)
-        {
-            Debug.Log($"[CounterattackEffect] Spawned counter effect on unit {targetUnitId}");
-        }
-    }
-
-    /// <summary>
     /// Pauses idle animations on all units during combat.
     /// Call at start of combat for cleaner visuals.
     /// </summary>
@@ -923,6 +1358,19 @@ private Vector3 GetCommanderPosition(Player player)
     }
 
     /// <summary>
+    /// Stops continuous firing if running. Safe to call multiple times.
+    /// </summary>
+    private void StopContinuousFiring()
+    {
+        if (continuousFiringRoutine != null)
+        {
+            StopCoroutine(continuousFiringRoutine);
+            continuousFiringRoutine = null;
+            Debug.Log("[CONTINUOUS FIRE] Stopped");
+        }
+    }
+
+    /// <summary>
     /// Gets a random enemy unit ID from the provided list.
     /// Returns -1 if no enemies are available (fallback to direction-based targeting).
     /// </summary>
@@ -945,10 +1393,10 @@ private Vector3 GetCommanderPosition(Player player)
         var settings = CombatVisualSettings.Instance;
         if (settings == null || fieldSpawner == null) yield break;
 
-        // Fire interval (how often units fire)
-        float fireInterval = 0.8f; // Fire every 0.8 seconds
+        // Fire interval from settings (default 0.4s for intense combat)
+        float fireInterval = settings.continuousFiringInterval;
 
-        Debug.Log("[CONTINUOUS FIRE] Background firing started");
+        Debug.Log($"[CONTINUOUS FIRE] Background firing started (interval: {fireInterval}s)");
 
         // Get commander positions for when enemy has no units
         Vector3 commanderBPos = (battleHUD != null) ? battleHUD.GetCommanderBPosition() : Vector3.zero;

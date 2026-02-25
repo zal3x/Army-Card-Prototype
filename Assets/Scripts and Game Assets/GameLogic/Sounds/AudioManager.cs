@@ -54,6 +54,10 @@ public class AudioManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
+        // Ensure there is always an AudioListener in the scene
+        if (FindObjectOfType<AudioListener>() == null)
+            gameObject.AddComponent<AudioListener>();
+
         // Create audio sources if not assigned
         SetupAudioSources();
 

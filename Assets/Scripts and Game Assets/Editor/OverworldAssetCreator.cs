@@ -73,7 +73,7 @@ public class OverworldAssetCreator : EditorWindow
             ("Combined Arms Doctrine", "Vehicles gain +2 ATK when you also have infantry on field", CardRarity.Common, DoctrineEffectType.TypeBonusWhenOtherTypePresent, 2),
             ("Infantry Surge", "Start each battle with 2 infantry on field", CardRarity.Epic, DoctrineEffectType.StartWithUnitsOnField, 2),
             ("Strategic Reserves", "Draw an extra card at beginning of game", CardRarity.Uncommon, DoctrineEffectType.ExtraDrawAtStart, 1),
-            ("Reinforcements", "When your army is entirely defeated, an infantry unit appears", CardRarity.Legendary, DoctrineEffectType.SpawnOnArmyDefeated, 1),
+            ("Reinforcements", "When your commander takes damage, an infantry unit appears (once per battle)", CardRarity.Legendary, DoctrineEffectType.SpawnOnCommanderDamaged, 1),
             ("SOS", "Revive any one unit at beginning of round 3 from discard pile", CardRarity.Rare, DoctrineEffectType.ReviveFromDiscard, 1),
             ("Ranged Warrior", "All ranged units do +3 ATK", CardRarity.Uncommon, DoctrineEffectType.TypeAtkBonus, 3),
             ("Close Combat", "All infantry units do +3 ATK", CardRarity.Uncommon, DoctrineEffectType.TypeAtkBonus, 3),

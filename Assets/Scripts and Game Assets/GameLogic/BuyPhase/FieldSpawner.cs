@@ -99,6 +99,11 @@ private readonly Dictionary<PlayerSide, Dictionary<RowType, UnitType>> rowLayout
        }
    }
 };
+private void Awake()
+{
+    UnitEffectManager.Initialize(this);
+}
+
 public void SetRowLayout(PlayerSide side, UnitType front, UnitType middle, UnitType back)
 {
    rowLayoutMap[side][RowType.Front] = front;
@@ -1176,7 +1181,10 @@ private Transform[] GetPhysicalRowArray(PlayerSide side, RowType row)
 
        visualsByUnitId[unitId] = go;
        if (go != null)
+       {
            transformsByUnitId[unitId] = go.transform;
+           UnitEffectController.InitializeOnUnit(go);
+       }
 
        // Set sorting order for visual layering (later units appear in front)
        if (go != null)

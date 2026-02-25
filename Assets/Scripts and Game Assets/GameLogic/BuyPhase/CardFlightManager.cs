@@ -328,9 +328,11 @@ private void SlamSpecialThenFinish(CardVisual cardVisual, Action onComplete)
                     .setEase(LeanTweenType.linear);
             }
 
-            // Fly to discard then destroy
+            // Fly to discard then register with DiscardPileUI and destroy
+            UnitCard cardDataCapture = tracked.cardData;
             cv.FlyToWorldPosition(discardWorldPos, () =>
             {
+                DiscardPileUI.Instance?.AddCard(cardDataCapture);
                 Destroy(cv.gameObject);
             });
         }
@@ -412,8 +414,10 @@ private void SlamSpecialThenFinish(CardVisual cardVisual, Action onComplete)
         // If your CardVisual requires UI position, this still works because FlyToWorldPosition reads rectTransform.position.
         cv.transform.position = worldStartPosition;
 
+        UnitCard fallbackCardData = cardData;
         cv.FlyToWorldPosition(discardWorldPos, () =>
         {
+            DiscardPileUI.Instance?.AddCard(fallbackCardData);
             Destroy(go);
         });
     }

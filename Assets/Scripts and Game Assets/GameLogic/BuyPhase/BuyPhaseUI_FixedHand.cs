@@ -84,6 +84,37 @@ public void ShowRevealOverlay(string title, List<UnitCard> cards)
     StartCoroutine(EnsureOverlayActiveCoroutine());
 }
 
+/// <summary>
+/// Shows a reveal overlay with selection capability (for POW card selection).
+/// </summary>
+public void ShowRevealOverlay(string title, List<UnitCard> cards, System.Action<UnitCard> onSelect)
+{
+    SetHandCarouselInputEnabled(false);
+
+    if (revealOverlay == null)
+    {
+        Debug.LogError("[BuyUI] revealOverlay is NULL! Assign CardRevealOverlay in Inspector.");
+        SetHandCarouselInputEnabled(true);
+        return;
+    }
+
+    Debug.Log($"[BuyUI] ShowRevealOverlay with selection: title='{title}', cards={cards?.Count ?? 0}");
+
+    revealOverlay.ShowWithSelection(title, cards, cloneCards: true,
+        onSelect: (selected) =>
+        {
+            SetHandCarouselInputEnabled(true);
+            onSelect?.Invoke(selected);
+        },
+        onDismiss: () =>
+        {
+            SetHandCarouselInputEnabled(true);
+        }
+    );
+
+    StartCoroutine(EnsureOverlayActiveCoroutine());
+}
+
 private System.Collections.IEnumerator EnsureOverlayActiveCoroutine()
 {
     yield return null; // Wait one frame

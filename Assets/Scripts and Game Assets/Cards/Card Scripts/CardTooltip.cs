@@ -124,18 +124,17 @@ public class CardTooltip : MonoBehaviour
         return ability switch
         {
             UnitAbilityType.None => "No special ability.",
-            UnitAbilityType.TauntRowFirst => "<b>Taunt:</b> Forces enemy damage to hit this row first.",
-            UnitAbilityType.DoubleAttackIfEnemyHasTank => "<b>RPG:</b> Deals 2x damage if enemy has vehicles.",
-            UnitAbilityType.DoubleAttackIfThreeOfKindOnRow => "<b>3-of-a-Kind:</b> Deals 2x damage with 3+ copies in row.",
-            UnitAbilityType.DoubleAttackIfFullHealth => "<b>Full HP Bonus:</b> Deals 2x damage at max health.",
-            UnitAbilityType.ReduceIncomingDamage50Percent => "<b>Armored:</b> Takes 50% damage. Dies instantly if overwhelmed (2x HP damage).",
-            UnitAbilityType.ArmorPiercing => "<b>Armor Piercing:</b> Ignores enemy armor.",
+            UnitAbilityType.Taunt => "<b>Taunt:</b> Forces enemy damage to hit this row first.",
+            UnitAbilityType.ArmorPiercing => "<b>Armor Piercing:</b> Deals 2x damage if enemy has vehicles.",
+            UnitAbilityType.ThreeOfAKind => "<b>3-of-a-Kind:</b> Deals 2x damage with 3+ copies in row.",
+            UnitAbilityType.Unmatched => "<b>Unmatched:</b> Deals 2x damage at max health.",
+            UnitAbilityType.Armored => "<b>Armored:</b> Spawns with 2x HP (visible on health bar).",
             UnitAbilityType.Counterattack => "<b>Counterattack:</b> Deals 50% damage back.",
-            UnitAbilityType.CommanderBypassDamage25Percent => "<b>Bypass:</b> 25% damage goes directly to commander.",
-            UnitAbilityType.TargetMark => "<b>Mark Target:</b> Marks random enemy for 2x vulnerability.",
-            UnitAbilityType.GainGoldOnPlay => "<b>Gain Gold:</b> Grants bonus gold when played.",
-            UnitAbilityType.DuplicateSelfFromDeckOnPlay => "<b>Duplicate:</b> Plays another copy from deck.",
-            UnitAbilityType.DestroyStrongestEnemyVehicleIfEnemyVehicleRowIsFullOnPlay => "<b>Anti-Vehicle:</b> Destroys strongest enemy vehicle if row is full.",
+            UnitAbilityType.DirectAttack => "<b>Direct Attack:</b> 25% damage goes directly to commander.",
+            UnitAbilityType.TargetMark => "<b>Mark Target:</b> Marks random enemy, halving their HP immediately.",
+            UnitAbilityType.MrMoneybags => "<b>Mr. Moneybags:</b> Grants bonus gold when played.",
+            UnitAbilityType.Duplicate => "<b>Duplicate:</b> Plays another copy from deck.",
+            UnitAbilityType.DestroyStrongestVehicle => "<b>Anti-Vehicle:</b> Destroys strongest enemy vehicle if row is full.",
             _ => $"<i>{ability}</i>"
         };
     }

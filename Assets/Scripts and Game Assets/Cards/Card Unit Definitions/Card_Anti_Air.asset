@@ -13,12 +13,12 @@ MonoBehaviour:
   m_Name: Card_Anti_Air
   m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
   cardName: Anti Air
-  type: 1
-  cost: 5
-  hp: 20
-  atk: 10
+  type: 3
+  cost: 1
+  hp: 0
+  atk: 2
   rarity: 0
-  ability: 12
+  ability: 4
   countsAsVehicle: 0
   abilityParams:
     Multiplier: 1

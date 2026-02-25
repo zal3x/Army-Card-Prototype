@@ -145,11 +145,37 @@ public void ApplyPermanentBonusesToCards(Player owner, List<UnitCard> cards)
 {
     if (owner == null || cards == null) return;
 
+    var cmd = GetCommanderId(owner);
+    Debug.Log($"[COMMANDER BONUS] {owner.Name} | Commander={cmd} | Applying to {cards.Count} cards");
+
     for (int i = 0; i < cards.Count; i++)
     {
         ApplyPermanentBonusesToCard(owner, cards[i]);
     }
 }
+/// <summary>
+/// FEBRUARY 2026 COMMANDER BONUS SYSTEM
+///
+/// Bonuses are now flat +1 ATK instead of percentage multipliers.
+/// This makes the system simpler and more predictable.
+///
+/// PERMANENT BONUSES (applied at card creation):
+/// - Gruff: All vehicle units have +1 ATK
+/// - Hank: All infantry units have +1 ATK
+/// - Leo: All units cost 1 less gold, forever
+/// - Alex: Ranged units have +1 ATK
+/// - Ashley: Air units have +1 ATK
+///
+/// CONDITIONAL BONUSES (applied during combat):
+/// - Seth: All units gain +1 ATK on "roads" maps
+/// - Aqua: All units gain +1 ATK in rainy or snowy weather
+///
+/// ROUND-BASED BONUSES (special handling):
+/// - Roxanne: Ranged units cost 2 less gold in round 1 of every battle
+///
+/// META BONUSES (not affecting cards directly):
+/// - Nicholas: Can equip 1 extra Perk (handled in perk system)
+/// </summary>
 public void ApplyPermanentBonusesToCard(Player owner, UnitCard card)
 {
     if (owner == null || card == null) return;
@@ -159,62 +185,50 @@ public void ApplyPermanentBonusesToCard(Player owner, UnitCard card)
 
     var cmd = GetCommanderId(owner);
 
-    // DEBUG: Log what commander was found for this player
-    Debug.Log($"[COMMANDER BONUS] ApplyPermanentBonusesToCard: Card='{card.Name}', Owner='{owner?.Name}', CommanderId={cmd}, IsSpecialCard={card.IsSpecialCard}, BaseATK={card.BaseATK}, BaseHP={card.BaseHP}");
+    if (card.IsSpecialCard) return; // No bonuses for special cards
 
-    // Leo: all units cost 1 less gold forever (not specials)
-    if (cmd == CommanderId.Leo && !card.IsSpecialCard)
+    // Leo: all units cost 1 less gold forever
+    if (cmd == CommanderId.Leo)
     {
         int oldCost = card.Cost;
         card.Cost = Mathf.Max(0, card.Cost - 1);
         Debug.Log($"[COMMANDER BONUS] Leo cost reduction: {oldCost} -> {card.Cost}");
     }
 
-    // Gruff: all units 130% ATK, 80% HP (not specials)
-    if (cmd == CommanderId.Gruff && !card.IsSpecialCard)
+    // Gruff: all vehicle units have +1 ATK
+    if (cmd == CommanderId.Gruff && card.Type == UnitType.Vehicle)
     {
         int oldATK = card.BaseATK;
-        int oldHP = card.BaseHP;
-        card.BaseATK = Mathf.RoundToInt(card.BaseATK * 1.30f);
-        card.BaseHP  = Mathf.RoundToInt(card.BaseHP * 0.80f);
-        Debug.Log($"[COMMANDER BONUS] Gruff applied: ATK {oldATK} -> {card.BaseATK}, HP {oldHP} -> {card.BaseHP}");
+        card.BaseATK += 1;
+        Debug.Log($"[COMMANDER BONUS] Gruff (Vehicle) applied: ATK {oldATK} -> {card.BaseATK}");
     }
 
-    // Alex: Infantry +20% ATK/HP
-    if (cmd == CommanderId.Alex && !card.IsSpecialCard && card.Type == UnitType.Infantry)
+    // Hank: all infantry units have +1 ATK
+    if (cmd == CommanderId.Hank && card.Type == UnitType.Infantry)
     {
         int oldATK = card.BaseATK;
-        int oldHP = card.BaseHP;
-        card.BaseATK = Mathf.RoundToInt(card.BaseATK * 1.20f);
-        card.BaseHP  = Mathf.RoundToInt(card.BaseHP * 1.20f);
-        Debug.Log($"[COMMANDER BONUS] Alex (Infantry) applied: ATK {oldATK} -> {card.BaseATK}, HP {oldHP} -> {card.BaseHP}");
+        card.BaseATK += 1;
+        Debug.Log($"[COMMANDER BONUS] Hank (Infantry) applied: ATK {oldATK} -> {card.BaseATK}");
     }
 
-    // Ashley: Ranged +20% ATK
-    if (cmd == CommanderId.Ashley && !card.IsSpecialCard && card.Type == UnitType.Ranged)
+    // Alex: ranged units have +1 ATK
+    if (cmd == CommanderId.Alex && card.Type == UnitType.Ranged)
     {
         int oldATK = card.BaseATK;
-        card.BaseATK = Mathf.RoundToInt(card.BaseATK * 1.20f);
-        Debug.Log($"[COMMANDER BONUS] Ashley (Ranged) applied: ATK {oldATK} -> {card.BaseATK}");
+        card.BaseATK += 1;
+        Debug.Log($"[COMMANDER BONUS] Alex (Ranged) applied: ATK {oldATK} -> {card.BaseATK}");
     }
 
-    // Roxanne: Air +10% ATK/HP
-    if (cmd == CommanderId.Roxanne && !card.IsSpecialCard && card.Type == UnitType.Air)
+    // Ashley: air units have +1 ATK
+    if (cmd == CommanderId.Ashley && card.Type == UnitType.Air)
     {
         int oldATK = card.BaseATK;
-        int oldHP = card.BaseHP;
-        card.BaseATK = Mathf.RoundToInt(card.BaseATK * 1.10f);
-        card.BaseHP  = Mathf.RoundToInt(card.BaseHP * 1.10f);
-        Debug.Log($"[COMMANDER BONUS] Roxanne (Air) applied: ATK {oldATK} -> {card.BaseATK}, HP {oldHP} -> {card.BaseHP}");
+        card.BaseATK += 1;
+        Debug.Log($"[COMMANDER BONUS] Ashley (Air) applied: ATK {oldATK} -> {card.BaseATK}");
     }
 
-    // Hank: Vehicle +10% ATK
-    if (cmd == CommanderId.Hank && !card.IsSpecialCard && card.Type == UnitType.Vehicle)
-    {
-        int oldATK = card.BaseATK;
-        card.BaseATK = Mathf.RoundToInt(card.BaseATK * 1.10f);
-        Debug.Log($"[COMMANDER BONUS] Hank (Vehicle) applied: ATK {oldATK} -> {card.BaseATK}");
-    }
+    // Roxanne: ranged units cost 2 less gold in round 1 (handled in ApplyRound1Bonuses)
+    // Nicholas: extra perk slot (handled in perk system)
 }
 
 private void HandleTerrainChanged(Battlefield.TerrainType t)
@@ -258,21 +272,9 @@ private void HandleWeatherChanged(Battlefield.WeatherType w)
     /// </summary>
     public void ApplyPermanentBonusesToUnit(Player owner, Unit unit)
     {
-        if (owner == null || unit == null) return;
-
-        // Always-on and type-based HP/ATK changes are baked into stats here.
-        float atkMultAlwaysOn = ComputeAttackMultiplier_AlwaysOn(owner, unit);
-        float hpMultAlwaysOn = ComputeHpMultiplier(owner, unit); // in your list, HP bonuses are always-on/type-based only
-
-        if (!Mathf.Approximately(atkMultAlwaysOn, 1f))
-            unit.ATK = Mathf.Max(0, Mathf.RoundToInt(unit.ATK * atkMultAlwaysOn));
-
-        if (!Mathf.Approximately(hpMultAlwaysOn, 1f))
-        {
-            int newMax = Mathf.Max(1, Mathf.RoundToInt(unit.MaxHP * hpMultAlwaysOn));
-            unit.MaxHP = newMax;
-            unit.HP = newMax;
-        }
+        // NOTE (Feb 2026): Permanent ATK bonuses are now flat +1 ATK applied at card creation
+        // via ApplyPermanentBonusesToCard(). Unit HP is no longer used in the new combat system.
+        // This method is kept for call-site compatibility but no longer modifies any stats.
     }
 
     // =========================
@@ -299,34 +301,43 @@ public EffectiveCardStats GetEffectiveStatsForCard(UnitCard card)
     int hp = card.BaseHP;
     int cost = card.Cost;
 
-    float dmgTakenVsRanged = 1f;
-
     var cmd = GetCommanderId(card.Owner);
 
     // Conditional (battlefield-dependent) bonuses: Seth/Aqua
     // Only active during battle context
     if (IsInBattleContext && !card.IsSpecialCard)
     {
-        if (cmd == CommanderId.Seth&& cachedTerrain == Battlefield.TerrainType.Roads)
-            atk = Mathf.RoundToInt(atk * 1.50f);
+        // Seth: +1 ATK on roads maps
+        if (cmd == CommanderId.Seth && cachedTerrain == Battlefield.TerrainType.Roads)
+            atk += 1;
 
-        if (cmd == CommanderId.Aqua && cachedWeather == Battlefield.WeatherType.Rain)
-            atk = Mathf.RoundToInt(atk * 1.50f);
+        // Aqua: +1 ATK in rain or snow
+        if (cmd == CommanderId.Aqua &&
+            (cachedWeather == Battlefield.WeatherType.Rain || cachedWeather == Battlefield.WeatherType.Snow))
+            atk += 1;
     }
-
-    // Nicholas is not stat-changing, but useful for tooltip later
-    if (cmd == CommanderId.Nicholas)
-        dmgTakenVsRanged = 0.80f;
 
     return new EffectiveCardStats
     {
         Attack = atk,
         HP = hp,
         Cost = Mathf.Max(0, cost),
-        DamageTakenMultiplierVsRanged = dmgTakenVsRanged
+        DamageTakenMultiplierVsRanged = 1f // Nicholas perk bonus handled elsewhere
     };
 }
 
+/// <summary>
+/// FEBRUARY 2026 COMMANDER BONUSES:
+/// - Gruff: Vehicle units +1 ATK
+/// - Hank: Infantry units +1 ATK
+/// - Leo: All units cost 1 less gold
+/// - Alex: Ranged units +1 ATK
+/// - Ashley: Air units +1 ATK
+/// - Roxanne: Ranged units cost 2 less in round 1 (handled separately)
+/// - Seth: +1 ATK on roads maps (conditional)
+/// - Aqua: +1 ATK in rain/snow (conditional)
+/// - Nicholas: Extra perk slot (meta, not stat-changing)
+/// </summary>
 public EffectiveCardStats GetEffectiveStatsForCard(Player owner, UnitCardDefinition def)
 {
     if (def == null)
@@ -336,73 +347,58 @@ public EffectiveCardStats GetEffectiveStatsForCard(Player owner, UnitCardDefinit
     int hp  = def.hp;
     int cost = def.cost;
 
-    float dmgTakenVsRanged = 1f;
-
     var cmd = GetCommanderId(owner);
 
-    // Permanent (always-on) commander adjustments
-    switch (cmd)
+    if (!def.isSpecialCard)
     {
-        case CommanderId.Leo:
-            // Units cost -1 forever (leave specials unchanged)
-            if (!def.isSpecialCard) cost = Mathf.Max(0, cost - 1);
-            break;
+        // Permanent commander adjustments (flat +1 ATK bonuses)
+        switch (cmd)
+        {
+            case CommanderId.Leo:
+                // All units cost 1 less gold forever
+                cost = Mathf.Max(0, cost - 1);
+                break;
 
-        case CommanderId.Gruff:
-            // All units: 130% ATK, 80% HP
-            if (!def.isSpecialCard)
-            {
-                atk = Mathf.RoundToInt(atk * 1.30f);
-                hp  = Mathf.RoundToInt(hp  * 0.80f);
-            }
-            break;
+            case CommanderId.Gruff:
+                // Vehicle units +1 ATK
+                if (def.type == UnitType.Vehicle)
+                    atk += 1;
+                break;
 
-        case CommanderId.Alex:
-            // Infantry: +20% ATK/HP
-            if (!def.isSpecialCard && def.type == UnitType.Infantry)
-            {
-                atk = Mathf.RoundToInt(atk * 1.20f);
-                hp  = Mathf.RoundToInt(hp  * 1.20f);
-            }
-            break;
+            case CommanderId.Hank:
+                // Infantry units +1 ATK
+                if (def.type == UnitType.Infantry)
+                    atk += 1;
+                break;
 
-        case CommanderId.Ashley:
-            // Ranged: +20% ATK
-            if (!def.isSpecialCard && def.type == UnitType.Ranged)
-                atk = Mathf.RoundToInt(atk * 1.20f);
-            break;
+            case CommanderId.Alex:
+                // Ranged units +1 ATK
+                if (def.type == UnitType.Ranged)
+                    atk += 1;
+                break;
 
-        case CommanderId.Roxanne:
-            // Air: +10% ATK/HP
-            if (!def.isSpecialCard && def.type == UnitType.Air)
-            {
-                atk = Mathf.RoundToInt(atk * 1.10f);
-                hp  = Mathf.RoundToInt(hp  * 1.10f);
-            }
-            break;
+            case CommanderId.Ashley:
+                // Air units +1 ATK
+                if (def.type == UnitType.Air)
+                    atk += 1;
+                break;
 
-        case CommanderId.Hank:
-            // Vehicles: +10% ATK (you said "non-ranged vehicles"; your UnitType enum
-            // doesn't separate ranged vehicles, so this applies to Vehicle type)
-            if (!def.isSpecialCard && def.type == UnitType.Vehicle)
-                atk = Mathf.RoundToInt(atk * 1.10f);
-            break;
+            // Roxanne: Round 1 cost reduction handled in ApplyRound1Bonuses
+            // Nicholas: Extra perk slot (meta bonus, not stat-changing)
+        }
 
-        case CommanderId.Nicholas:
-            // Doesn't change card numbers; changes damage taken vs ranged
-            dmgTakenVsRanged = 0.80f;
-            break;
-    }
+        // Conditional bonuses (terrain/weather)
+        if (Battlefield.Instance != null)
+        {
+            // Seth: +1 ATK on roads maps
+            if (cmd == CommanderId.Seth && cachedTerrain == Battlefield.TerrainType.Roads)
+                atk += 1;
 
-    // Conditional display (terrain/weather) — only if there is a battlefield active
-    // (You can later gate this with an IsInBattleContext bool if you want)
-    if (Battlefield.Instance != null && !def.isSpecialCard)
-    {
-        if (cmd == CommanderId.Seth&& cachedTerrain == Battlefield.TerrainType.Roads)
-            atk = Mathf.RoundToInt(atk * 1.50f);
-
-        if (cmd == CommanderId.Aqua && cachedWeather == Battlefield.WeatherType.Rain)
-            atk = Mathf.RoundToInt(atk * 1.50f);
+            // Aqua: +1 ATK in rain or snow
+            if (cmd == CommanderId.Aqua &&
+                (cachedWeather == Battlefield.WeatherType.Rain || cachedWeather == Battlefield.WeatherType.Snow))
+                atk += 1;
+        }
     }
 
     return new EffectiveCardStats
@@ -410,7 +406,7 @@ public EffectiveCardStats GetEffectiveStatsForCard(Player owner, UnitCardDefinit
         Attack = atk,
         HP = hp,
         Cost = Mathf.Max(0, cost),
-        DamageTakenMultiplierVsRanged = dmgTakenVsRanged
+        DamageTakenMultiplierVsRanged = 1f
     };
 }
 
@@ -440,107 +436,105 @@ public void ExitBattleContext()
 
 
 
+    // ========================================
+    // FEBRUARY 2026: FLAT ATK BONUS SYSTEM
+    // ========================================
+    // Bonuses are now flat +1 ATK instead of percentage multipliers.
+    // The multiplier functions are kept for backwards compatibility but now return 1.0.
+    // Actual bonuses are applied in ApplyPermanentBonusesToCard (permanent)
+    // and GetConditionalATKBonus (terrain/weather).
+
     private float ComputeAttackMultiplier(Player owner, Unit unit)
     {
-        // Always-on + type-based
-        float m = ComputeAttackMultiplier_AlwaysOn(owner, unit);
-
-        // Conditional (terrain/weather)
-        m *= ComputeAttackMultiplier_Conditional(owner, unit);
-
-        return Mathf.Max(0f, m);
+        // Permanent bonuses are already baked into unit.ATK via ApplyPermanentBonusesToCard
+        // Conditional bonuses are applied via GetConditionalATKBonus
+        return 1f;
     }
 
     private float ComputeAttackMultiplier_AlwaysOn(Player owner, Unit unit)
     {
-        var cmd = GetCommander(owner);
-        float m = 1f;
-
-        switch (cmd)
-        {
-            case CommanderId.Gruff:
-                // All units 130% ATK
-                m *= 1.30f;
-                break;
-
-            case CommanderId.Hank:
-                // All NON-RANGED vehicles do 110% attack
-                // In your codebase, Ranged is UnitType.Ranged (and Vehicle is UnitType.Vehicle).
-                if (unit.Type == UnitType.Vehicle)
-                    m *= 1.10f;
-                break;
-
-            case CommanderId.Alex:
-                // Infantry gain 20% hp and attack
-                if (unit.Type == UnitType.Infantry)
-                    m *= 1.20f;
-                break;
-
-            case CommanderId.Ashley:
-                // Ranged units gain 20% atk
-                if (unit.Type == UnitType.Ranged)
-                    m *= 1.20f;
-                break;
-
-            case CommanderId.Roxanne:
-                // Air units have 10% more attack
-                if (unit.Type == UnitType.Air)
-                    m *= 1.10f;
-                break;
-        }
-
-        return m;
+        // DEPRECATED: Permanent bonuses are now flat +1 ATK applied at card creation
+        return 1f;
     }
 
     private float ComputeAttackMultiplier_Conditional(Player owner, Unit unit)
     {
-        var cmd = GetCommander(owner);
-        float m = 1f;
+        // DEPRECATED: Conditional bonuses are now flat +1 ATK via GetConditionalATKBonus
+        return 1f;
+    }
+
+    /// <summary>
+    /// Gets the conditional ATK bonus for terrain/weather effects.
+    /// Called during combat ATK calculation.
+    ///
+    /// - Seth: +1 ATK on "roads" maps
+    /// - Aqua: +1 ATK in rainy or snowy weather
+    /// </summary>
+    public int GetConditionalATKBonus(Player owner, Unit unit)
+    {
+        if (owner == null || unit == null) return 0;
+
+        var cmd = GetCommanderId(owner);
+        int bonus = 0;
 
         switch (cmd)
         {
             case CommanderId.Seth:
-                // All units get 50% attack on Battlefield type "Roads"
+                // All units gain +1 ATK on roads maps
                 if (cachedTerrain == Battlefield.TerrainType.Roads)
-                    m *= 1.50f;
+                    bonus += 1;
                 break;
 
             case CommanderId.Aqua:
-                // All units get 50% more attack when weather is "Rain"
-                if (cachedWeather == Battlefield.WeatherType.Rain)
-                    m *= 1.50f;
+                // All units gain +1 ATK in rain or snow
+                if (cachedWeather == Battlefield.WeatherType.Rain ||
+                    cachedWeather == Battlefield.WeatherType.Snow)
+                    bonus += 1;
                 break;
         }
 
-        return m;
+        return bonus;
+    }
+
+    /// <summary>
+    /// Applies Roxanne's round 1 cost reduction to ranged units.
+    /// Call this at the start of round 1 of each battle.
+    /// Ranged units cost 2 less gold in round 1.
+    /// </summary>
+    public void ApplyRound1Bonuses(Player owner, List<UnitCard> hand)
+    {
+        if (owner == null || hand == null) return;
+
+        var cmd = GetCommanderId(owner);
+
+        if (cmd == CommanderId.Roxanne)
+        {
+            foreach (var card in hand)
+            {
+                if (card != null && !card.IsSpecialCard && card.Type == UnitType.Ranged)
+                {
+                    int oldCost = card.Cost;
+                    card.Cost = Mathf.Max(0, card.Cost - 2);
+                    Debug.Log($"[COMMANDER BONUS] Roxanne round 1: {card.Name} cost {oldCost} -> {card.Cost}");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Checks if the player has Nicholas commander (for extra perk slot).
+    /// </summary>
+    public bool HasExtraPerkSlot(Player owner)
+    {
+        if (owner == null) return false;
+        return GetCommanderId(owner) == CommanderId.Nicholas;
     }
 
     private float ComputeHpMultiplier(Player owner, Unit unit)
     {
-        var cmd = GetCommander(owner);
-        float m = 1f;
-
-        switch (cmd)
-        {
-            case CommanderId.Gruff:
-                // All units only 80% HP
-                m *= 0.80f;
-                break;
-
-            case CommanderId.Alex:
-                // Infantry +20% HP
-                if (unit.Type == UnitType.Infantry)
-                    m *= 1.20f;
-                break;
-
-            case CommanderId.Roxanne:
-                // Air +10% HP
-                if (unit.Type == UnitType.Air)
-                    m *= 1.10f;
-                break;
-        }
-
-        return Mathf.Max(0.01f, m);
+        // DEPRECATED: Units no longer have HP in the new combat system.
+        // HP bonuses have been removed. All commander bonuses are now ATK-based.
+        return 1f;
     }
 
     private int ComputeCostDelta(Player owner, UnitCard card)

@@ -19,7 +19,18 @@ public enum CombatEventType
     CommanderDamaged,
 
     CleanupMovedToDiscard,
-    CombatEnd
+    CombatEnd,
+
+    // New combat system events
+    /// <summary>
+    /// Total ATK comparison result - one player won the round
+    /// </summary>
+    RoundWon,
+
+    /// <summary>
+    /// Total ATK comparison result - both players had equal ATK (tie)
+    /// </summary>
+    RoundTied
 }
 
 

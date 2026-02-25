@@ -476,41 +476,98 @@ private void UpdateGoldDisplayB(int gold)
     public Vector3 GetCommanderAPosition()
     {
         if (commanderDisplayA == null) return Vector3.zero;
-        
-        // Get the base RectTransform position
-        RectTransform commanderRect = commanderDisplayA.GetComponent<RectTransform>();
-        Vector3 basePos = GetCommanderUIWorldPosition(commanderRect);
-        
+
+        // Use the portrait RectTransform so we target the actual face, not the panel root
+        RectTransform commanderRect = commanderDisplayA.GetPortraitRectTransform()
+                                   ?? commanderDisplayA.GetComponent<RectTransform>();
+        Vector3 basePos = ScreenUIToGameWorldPosition(commanderRect);
+
         if (basePos == Vector3.zero) return Vector3.zero;
-        
-        // Apply customizable offsets (adjust in Inspector)
-        basePos.y += commanderDamageYOffset; // Default: -1.5f (below)
-        basePos.x += commanderDamageXOffset; // Default: 0f (centered)
-        basePos.z = -2f;                     // In front of UI
-        
+
+        basePos.y += commanderDamageYOffset;
+        basePos.x += commanderDamageXOffset;
         return basePos;
     }
 
     /// <summary>
-    /// Gets world position for spawning commander B damage numbers.
-    /// Used by CombatPlayback for precise damage number placement.
+    /// Gets world position for spawning commander B damage numbers and firing targets.
     /// </summary>
     public Vector3 GetCommanderBPosition()
     {
         if (commanderDisplayB == null) return Vector3.zero;
-        
-        // Get the base RectTransform position
-        RectTransform commanderRect = commanderDisplayB.GetComponent<RectTransform>();
-        Vector3 basePos = GetCommanderUIWorldPosition(commanderRect);
-        
+
+        // Use the portrait RectTransform so we target the actual face, not the panel root
+        RectTransform commanderRect = commanderDisplayB.GetPortraitRectTransform()
+                                   ?? commanderDisplayB.GetComponent<RectTransform>();
+        Vector3 basePos = ScreenUIToGameWorldPosition(commanderRect);
+
         if (basePos == Vector3.zero) return Vector3.zero;
-        
-        // Apply customizable offsets (adjust in Inspector)
-        basePos.y += commanderDamageYOffset; // Default: -1.5f (below)
-        basePos.x += commanderDamageXOffset; // Default: 0f (centered)
-        basePos.z = -2f;                     // In front of UI
-        
+
+        basePos.y += commanderDamageYOffset;
+        basePos.x += commanderDamageXOffset;
         return basePos;
+    }
+
+    [Header("Portrait Sprite Effect Positioning")]
+    [Tooltip("World Z plane where sprite overlay effects are placed (match your battlefield sprites, e.g. -0.5)")]
+    public float portraitEffectWorldZ = -0.5f;
+
+    /// <summary>
+    /// Gets the world position of the commander portrait image center,
+    /// projected onto the game world z-plane for SpriteRenderer-based effects.
+    /// Uses ray casting so it works for both orthographic and perspective cameras.
+    /// </summary>
+    public Vector3 GetCommanderPortraitPositionA()
+    {
+        if (commanderDisplayA == null) return Vector3.zero;
+        RectTransform portraitRT = commanderDisplayA.GetPortraitRectTransform();
+        if (portraitRT != null)
+            return ScreenUIToGameWorldPosition(portraitRT);
+        return GetCommanderAPosition();
+    }
+
+    public Vector3 GetCommanderPortraitPositionB()
+    {
+        if (commanderDisplayB == null) return Vector3.zero;
+        RectTransform portraitRT = commanderDisplayB.GetPortraitRectTransform();
+        if (portraitRT != null)
+            return ScreenUIToGameWorldPosition(portraitRT);
+        return GetCommanderBPosition();
+    }
+
+    /// <summary>
+    /// Projects a Screen Space - Overlay UI element onto the game world z-plane.
+    /// Casts a ray from the camera through the element's screen position and finds
+    /// the intersection with the target z-plane. Works for perspective and orthographic.
+    /// </summary>
+    private Vector3 ScreenUIToGameWorldPosition(RectTransform rt)
+    {
+        Canvas canvas = rt.GetComponentInParent<Canvas>();
+        if (canvas == null) return Vector3.zero;
+
+        Camera uiCamera = (canvas.renderMode == RenderMode.ScreenSpaceOverlay) ? null : canvas.worldCamera;
+        Vector2 screenPos = RectTransformUtility.WorldToScreenPoint(uiCamera, rt.position);
+
+        Camera cam = Camera.main;
+        if (cam == null) return Vector3.zero;
+
+        Ray ray = cam.ScreenPointToRay(screenPos);
+
+        // Intersect ray with the target world z-plane
+        if (Mathf.Abs(ray.direction.z) < 0.0001f) return Vector3.zero; // ray parallel to z-plane
+        float t = (portraitEffectWorldZ - ray.origin.z) / ray.direction.z;
+        if (t < 0) return Vector3.zero; // intersection behind camera
+
+        Vector3 worldPos = ray.origin + ray.direction * t;
+        worldPos.z = portraitEffectWorldZ;
+        return worldPos;
+    }
+
+    public Vector3 GetCommanderPortraitPosition(Player player, Player playerA, Player playerB)
+    {
+        if (player == playerA) return GetCommanderPortraitPositionA();
+        if (player == playerB) return GetCommanderPortraitPositionB();
+        return Vector3.zero;
     }
 
     /// <summary>

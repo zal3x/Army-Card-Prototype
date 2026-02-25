@@ -409,6 +409,13 @@ public void SetCardsPreserveCenter(List<UnitCard> cards)
             Time.deltaTime * scrollSpeed
         );
 
+        // Early exit if no cards
+        if (cardVisuals.Count == 0)
+        {
+            currentCenterIndex = 0;
+            return;
+        }
+
         // Update center index based on scroll position
         int newCenterIndex = Mathf.RoundToInt(-currentScrollPosition / cardSpacing);
         newCenterIndex = Mathf.Clamp(newCenterIndex, 0, cardVisuals.Count - 1);
@@ -549,10 +556,18 @@ public void SetCardsPreserveCenter(List<UnitCard> cards)
     /// </summary>
     public void ScrollToCard(int index)
     {
+        // Early exit if no cards in carousel
+        if (cardVisuals.Count == 0)
+        {
+            currentCenterIndex = 0;
+            targetScrollPosition = 0f;
+            return;
+        }
+
         index = Mathf.Clamp(index, 0, cardVisuals.Count - 1);
 
         // Use cached compressed position for accurate centering
-        if (cachedCardPositions != null && index < cachedCardPositions.Length)
+        if (cachedCardPositions != null && index >= 0 && index < cachedCardPositions.Length)
             targetScrollPosition = -cachedCardPositions[index];
         else
             targetScrollPosition = -index * cardSpacing; // Fallback
@@ -566,6 +581,10 @@ public void SetCardsPreserveCenter(List<UnitCard> cards)
     /// </summary>
     private void SnapToNearestCard()
     {
+        // Early exit if no cards in carousel
+        if (cardVisuals.Count == 0 || cachedCardPositions == null || cachedCardPositions.Length == 0)
+            return;
+
         // Find the card whose compressed position is closest to current scroll position
         int nearestIndex = 0;
         float minDistance = float.MaxValue;

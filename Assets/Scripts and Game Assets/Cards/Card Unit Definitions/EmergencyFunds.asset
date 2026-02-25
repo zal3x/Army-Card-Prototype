@@ -24,7 +24,7 @@ MonoBehaviour:
     Multiplier: 1
     Amount: 0
   isSpecialCard: 1
-  specialType: 10
+  specialType: 11
   hasPreemptive: 0
   preemptiveTargetType: 0
   preemptiveDamage: 0
@@ -33,5 +33,7 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: 6477828186639409970, guid: b4a77e073dc624e00b9efd56abfaa728, type: 3}
-  abilityDescription: Gain +5 Gold this round
+  abilityDescription: 'Gain gold on play
+
+'
   Definition: {fileID: 0}

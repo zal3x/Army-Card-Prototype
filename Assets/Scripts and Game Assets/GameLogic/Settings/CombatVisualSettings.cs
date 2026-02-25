@@ -38,9 +38,9 @@ public class CombatVisualSettings : ScriptableObject
     // ========================================
     // UNIFIED COMMANDER HEALTH
     // ========================================
-    [Header("━━━━━━━━━━ UNIFIED COMMANDER HEALTH ━━━━━━━━━━")]
-    [Tooltip("Enable unified commander health system (unit HP adds to commander HP)")]
-    public bool useUnifiedCommanderHealth = true;
+    [Header("━━━━━━━━━━ UNIFIED COMMANDER HEALTH (DEPRECATED) ━━━━━━━━━━")]
+    [Tooltip("DEPRECATED: New combat system uses fixed commander HP only. Set to false.")]
+    public bool useUnifiedCommanderHealth = false;
 
     [Tooltip("Duration of health bar expansion animation when units are deployed")]
     [Range(0.1f, 1.0f)]
@@ -131,6 +131,23 @@ public class CombatVisualSettings : ScriptableObject
 
     [Tooltip("Continue firing animations during damage resolution")]
     public bool continueFiringDuringDamage = true;
+
+    [Tooltip("How often units fire during continuous firing (seconds). Lower = more intense combat.")]
+    [Range(0.1f, 2.0f)]
+    public float continuousFiringInterval = 0.4f;
+
+    [Header("━━━━━━━━━━ NEW COMBAT FLOW ━━━━━━━━━━")]
+    [Tooltip("How long units fire before explosions begin (seconds). Drag this out for a longer fighting phase.")]
+    [Range(0.0f, 4.0f)]
+    public float fightingPhaseDuration = 0.5f;
+
+    [Tooltip("Delay between each unit explosion (seconds). Higher = slower, more dramatic explosions.")]
+    [Range(0.05f, 1.0f)]
+    public float explosionIntervalDelay = 0.15f;
+
+    [Tooltip("How long the last winning unit fires at the enemy commander before final explosion (seconds).")]
+    [Range(0.5f, 6.0f)]
+    public float commanderAssaultDuration = 1.5f;
 
     // ========================================
     // DEATH & VFX
@@ -302,7 +319,10 @@ public class CombatVisualSettings : ScriptableObject
     [Tooltip("Offset from damage position (in world space)")]
     public Vector3 counterattackEffectOffset = Vector3.zero;
 
-    [Tooltip("Sorting order for the effect (high value = renders on top)")]
+    [Tooltip("Sorting layer name for the effect (must match a layer defined in Tags & Layers)")]
+    public string counterattackEffectSortingLayer = "Default";
+
+    [Tooltip("Sorting order within the layer (high value = renders on top)")]
     public int counterattackEffectSortingOrder = 100;
 
     // ========================================
@@ -323,6 +343,10 @@ public class CombatVisualSettings : ScriptableObject
     [Tooltip("Delay before starting explosion phase after all damage is resolved")]
     [Range(0.0f, 2.0f)]
     public float preExplosionDelay = 0.5f;
+
+    [Tooltip("Extra time after combat ends before VFX cleanup, so in-flight projectiles can reach their targets")]
+    [Range(0.0f, 3.0f)]
+    public float projectileFlightBuffer = 1.0f;
 
     // ========================================
     // COMMANDER DAMAGE FINALE

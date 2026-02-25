@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
   cardName: Artillery
   type: 3
-  cost: 6
-  hp: 15
-  atk: 22
+  cost: 5
+  hp: 0
+  atk: 5
   rarity: 0
-  ability: 6
+  ability: 14
   countsAsVehicle: 0
   abilityParams:
     Multiplier: 1

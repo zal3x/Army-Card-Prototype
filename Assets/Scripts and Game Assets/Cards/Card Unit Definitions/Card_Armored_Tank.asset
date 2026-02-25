@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
   cardName: Armored Tank
   type: 1
-  cost: 20
-  hp: 60
-  atk: 40
+  cost: 8
+  hp: 0
+  atk: 15
   rarity: 0
-  ability: 5
+  ability: 8
   countsAsVehicle: 0
   abilityParams:
     Multiplier: 1

@@ -24,7 +24,7 @@ MonoBehaviour:
     Multiplier: 1
     Amount: 0
   isSpecialCard: 1
-  specialType: 16
+  specialType: 18
   hasPreemptive: 0
   preemptiveTargetType: 0
   preemptiveDamage: 0
@@ -33,5 +33,7 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: -8388385207488264875, guid: 4885567ccadb84b658e9a5cb05a918ee, type: 3}
-  abilityDescription: Air row recovers 50% HP
+  abilityDescription: 'nullify air debuffs
+
+'
   Definition: {fileID: 0}

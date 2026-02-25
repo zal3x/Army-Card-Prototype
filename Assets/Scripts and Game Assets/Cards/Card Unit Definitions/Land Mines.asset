@@ -33,5 +33,6 @@ MonoBehaviour:
   worldPrefabB: {fileID: 0}
   portraitSprite: {fileID: 0}
   backgroundSprite: {fileID: -4239088642893424808, guid: 4e87d5319694d4b958789863734a0407, type: 3}
-  abilityDescription: Opponent cannot rearrange this round
+  abilityDescription: 'minus 1 attack to each unit in enemy vehicle row, persists
+    entire round '
   Definition: {fileID: 0}

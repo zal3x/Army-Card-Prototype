@@ -12,13 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c584815bb2e4c49459f143b0b7d6511f, type: 3}
   m_Name: Card_Infantry
   m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
-  cardName: Infantry
+  cardName: Grunt
   type: 0
   cost: 1
-  hp: 4
-  atk: 3
+  hp: 0
+  atk: 2
   rarity: 0
-  ability: 1
+  ability: 15
   countsAsVehicle: 0
   abilityParams:
     Multiplier: 2
