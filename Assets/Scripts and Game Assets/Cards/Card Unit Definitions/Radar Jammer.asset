@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c584815bb2e4c49459f143b0b7d6511f, type: 3}
+  m_Name: Radar Jammer
+  m_EditorClassIdentifier: Assembly-CSharp::UnitCardDefinition
+  cardName: Radar Jammer
+  type: 0
+  cost: 0
+  hp: 0
+  atk: 0
+  rarity: 0
+  ability: 0
+  countsAsVehicle: 0
+  abilityParams:
+    Multiplier: 1
+    Amount: 0
+  isSpecialCard: 1
+  specialType: 2
+  hasPreemptive: 0
+  preemptiveTargetType: 0
+  preemptiveDamage: 0
+  targetBackRowOnly: 0
+  worldPrefabA: {fileID: 0}
+  worldPrefabB: {fileID: 0}
+  portraitSprite: {fileID: -8276521090642074997, guid: 961a109a08ef643e0a00485d4832c516, type: 3}
+  backgroundSprite: {fileID: 21300000, guid: 24196aa6ccd7a41ae8d69c4f4f48662b, type: 3}
+  abilityDescription: Reveal Opponents hand this round
+  Definition: {fileID: 0}
