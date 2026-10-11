@@ -519,7 +519,7 @@ public class AudioManager : MonoBehaviour
         var settings = AudioSettings.Instance;
         if (settings == null || settings.muteAll) return;
 
-        PlaySFX(settings.soulFlightSound, settings.soulFlightVolume, 0.08f);
+        PlayRandomSFX(settings.soulFlightSounds, settings.soulFlightVolume, 0.08f);
     }
 
     /// <summary>
@@ -530,7 +530,7 @@ public class AudioManager : MonoBehaviour
         var settings = AudioSettings.Instance;
         if (settings == null || settings.muteAll) return;
 
-        PlaySFX(settings.soulLandSound, settings.soulLandVolume, 0.06f);
+        PlayRandomSFX(settings.soulLandSounds, settings.soulLandVolume, 0.06f);
     }
 
     /// <summary>
@@ -541,7 +541,7 @@ public class AudioManager : MonoBehaviour
         var settings = AudioSettings.Instance;
         if (settings == null || settings.muteAll) return;
 
-        PlaySFX(settings.soulGurgleSound, settings.soulGurgleVolume, 0.05f);
+        PlayRandomSFX(settings.soulGurgleSounds, settings.soulGurgleVolume, 0.05f);
     }
 
     /// <summary>
@@ -552,7 +552,7 @@ public class AudioManager : MonoBehaviour
         var settings = AudioSettings.Instance;
         if (settings == null || settings.muteAll) return;
 
-        PlaySFX(settings.soulMagicSound, settings.soulMagicVolume);
+        PlayRandomSFX(settings.soulMagicSounds, settings.soulMagicVolume, 0f);
     }
 
     private void PlayUISound(AudioClip clip, float volume)

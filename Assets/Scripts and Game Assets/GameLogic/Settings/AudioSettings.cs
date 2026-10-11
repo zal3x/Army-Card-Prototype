@@ -171,23 +171,23 @@ public class AudioSettings : ScriptableObject
     // SOUL SOUNDS
     // ========================================
     [Header("━━━━━━━━━━ SOUL SOUNDS ━━━━━━━━━━")]
-    [Tooltip("Soul flying toward the progress bar (ghostly whoosh)")]
-    public AudioClip soulFlightSound;
+    [Tooltip("Soul flying toward the progress bar (ghostly whoosh) - one picked at random")]
+    public AudioClip[] soulFlightSounds;
     [Range(0f, 1f)]
     public float soulFlightVolume = 0.5f;
 
-    [Tooltip("Soul landing on the progress bar (soft thump + ping)")]
-    public AudioClip soulLandSound;
+    [Tooltip("Soul landing on the progress bar (soft thump + ping) - one picked at random")]
+    public AudioClip[] soulLandSounds;
     [Range(0f, 1f)]
     public float soulLandVolume = 0.6f;
 
-    [Tooltip("Progress bar filling with souls (liquid bubbling)")]
-    public AudioClip soulGurgleSound;
+    [Tooltip("Progress bar filling with souls (liquid bubbling) - one picked at random")]
+    public AudioClip[] soulGurgleSounds;
     [Range(0f, 1f)]
     public float soulGurgleVolume = 0.55f;
 
-    [Tooltip("Progress bar full / soul magic released (shimmering arpeggio)")]
-    public AudioClip soulMagicSound;
+    [Tooltip("Progress bar full / soul magic released (shimmering arpeggio) - one picked at random")]
+    public AudioClip[] soulMagicSounds;
     [Range(0f, 1f)]
     public float soulMagicVolume = 0.75f;
 
