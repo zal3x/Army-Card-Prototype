@@ -64,6 +64,14 @@ MonoBehaviour:
   roundStartVolume: 0.7
   combatStartSound: {fileID: 0}
   combatStartVolume: 0.75
+  soulFlightSound: {fileID: 8300000, guid: 673433230d604d0798867c22b80fb053, type: 3}
+  soulFlightVolume: 0.5
+  soulLandSound: {fileID: 8300000, guid: 83b0a5336f454de198157e48de1b82c7, type: 3}
+  soulLandVolume: 0.6
+  soulGurgleSound: {fileID: 8300000, guid: 4a9a634894384e7eb6575a3b90c29e93, type: 3}
+  soulGurgleVolume: 0.55
+  soulMagicSound: {fileID: 8300000, guid: dc717ca8513c49b7a33d29636da96415, type: 3}
+  soulMagicVolume: 0.75
   battleAmbience: {fileID: 0}
   battleAmbienceVolume: 0.3
   enableBattleAmbience: 1

@@ -507,6 +507,54 @@ public class AudioManager : MonoBehaviour
         PlaySFX(settings.combatStartSound, settings.combatStartVolume);
     }
 
+    // ========================================
+    // SOUL SOUNDS
+    // ========================================
+
+    /// <summary>
+    /// Plays the soul flight whoosh (soul travelling to the progress bar).
+    /// </summary>
+    public void PlaySoulFlight()
+    {
+        var settings = AudioSettings.Instance;
+        if (settings == null || settings.muteAll) return;
+
+        PlaySFX(settings.soulFlightSound, settings.soulFlightVolume, 0.08f);
+    }
+
+    /// <summary>
+    /// Plays the soul landing ping (soul arrives at the progress bar).
+    /// </summary>
+    public void PlaySoulLand()
+    {
+        var settings = AudioSettings.Instance;
+        if (settings == null || settings.muteAll) return;
+
+        PlaySFX(settings.soulLandSound, settings.soulLandVolume, 0.06f);
+    }
+
+    /// <summary>
+    /// Plays the soul gurgle (progress bar filling up).
+    /// </summary>
+    public void PlaySoulGurgle()
+    {
+        var settings = AudioSettings.Instance;
+        if (settings == null || settings.muteAll) return;
+
+        PlaySFX(settings.soulGurgleSound, settings.soulGurgleVolume, 0.05f);
+    }
+
+    /// <summary>
+    /// Plays the soul magic shimmer (progress bar full / soul power released).
+    /// </summary>
+    public void PlaySoulMagic()
+    {
+        var settings = AudioSettings.Instance;
+        if (settings == null || settings.muteAll) return;
+
+        PlaySFX(settings.soulMagicSound, settings.soulMagicVolume);
+    }
+
     private void PlayUISound(AudioClip clip, float volume)
     {
         var settings = AudioSettings.Instance;

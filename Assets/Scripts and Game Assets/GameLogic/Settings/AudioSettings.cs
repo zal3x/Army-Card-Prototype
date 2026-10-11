@@ -168,6 +168,30 @@ public class AudioSettings : ScriptableObject
     public float combatStartVolume = 0.75f;
 
     // ========================================
+    // SOUL SOUNDS
+    // ========================================
+    [Header("━━━━━━━━━━ SOUL SOUNDS ━━━━━━━━━━")]
+    [Tooltip("Soul flying toward the progress bar (ghostly whoosh)")]
+    public AudioClip soulFlightSound;
+    [Range(0f, 1f)]
+    public float soulFlightVolume = 0.5f;
+
+    [Tooltip("Soul landing on the progress bar (soft thump + ping)")]
+    public AudioClip soulLandSound;
+    [Range(0f, 1f)]
+    public float soulLandVolume = 0.6f;
+
+    [Tooltip("Progress bar filling with souls (liquid bubbling)")]
+    public AudioClip soulGurgleSound;
+    [Range(0f, 1f)]
+    public float soulGurgleVolume = 0.55f;
+
+    [Tooltip("Progress bar full / soul magic released (shimmering arpeggio)")]
+    public AudioClip soulMagicSound;
+    [Range(0f, 1f)]
+    public float soulMagicVolume = 0.75f;
+
+    // ========================================
     // AMBIENT & ATMOSPHERE
     // ========================================
     [Header("━━━━━━━━━━ AMBIENT & ATMOSPHERE ━━━━━━━━━━")]
